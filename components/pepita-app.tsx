@@ -350,7 +350,7 @@ export function PepitaApp() {
             <div className="chatScroll" ref={scrollRef}>
               {!messages.length && (
                 <div className="welcome">
-                  <div className="heroGlow"><img src="/pepita/normal.png" alt="Pepita"/></div>
+                  <div className="heroGlow"><div className="pepitaWalk" role="img" aria-label="Pepita caminhando no lugar"/></div>
                   <p className="eyebrow">PROSPECÇÃO EMPRESARIAL</p>
                   <h1>Olá! Eu sou a <span>Pepita.</span></h1>
                   <p className="lead">Diga quem você quer encontrar. Eu transformo seu pedido em filtros, consulto a base e organizo os resultados.</p>

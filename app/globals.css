@@ -72,14 +72,14 @@ svg{width:20px;height:20px}
   background:radial-gradient(circle,rgba(246,197,21,.17),transparent 60%),linear-gradient(180deg,#101213,#0d0f11);
   overflow:hidden
 }
-.heroGlow img{height:165px;width:165px;object-fit:cover;border-radius:18px;animation:pepitaWalk .8s steps(2,end) infinite;transform-origin:50% 88%;will-change:transform}
-@keyframes pepitaWalk{
-  0%,100%{transform:translate3d(0,0,0) rotate(0)}
-  25%{transform:translate3d(-3px,-3px,0) rotate(-1.5deg)}
-  50%{transform:translate3d(0,0,0) rotate(0)}
-  75%{transform:translate3d(3px,-3px,0) rotate(1.5deg)}
+.pepitaWalk{
+  --pepita-frame:165px;--pepita-neutral:-165px;--pepita-strip-shift:-660px;
+  width:var(--pepita-frame);height:var(--pepita-frame);flex:0 0 var(--pepita-frame);border-radius:18px;
+  background:url('/pepita/pepita-walk-sprite.png') 0 0/400% 100% no-repeat;
+  image-rendering:pixelated;animation:pepitaWalkFrames .56s steps(4,end) infinite;will-change:background-position
 }
-@media(prefers-reduced-motion:reduce){.heroGlow img{animation:none}}
+@keyframes pepitaWalkFrames{to{background-position-x:var(--pepita-strip-shift)}}
+@media(prefers-reduced-motion:reduce){.pepitaWalk{animation:none;background-position-x:var(--pepita-neutral)}}
 .eyebrow{margin:0 0 6px;color:var(--gold);font-size:10px;font-weight:850;letter-spacing:.16em}
 .welcome h1{font-size:36px;line-height:1.1;margin:0 0 10px;letter-spacing:-.035em}
 .welcome h1 span{color:var(--gold)}
@@ -247,7 +247,7 @@ svg{width:20px;height:20px}
   .composer{bottom:12px;width:calc(100% - 24px);grid-template-columns:minmax(0,1fr)}
   .welcome h1{font-size:30px}
   .quickGrid{grid-template-columns:1fr}
-  .heroGlow{width:180px;height:140px}.heroGlow img{width:130px;height:130px}
+  .heroGlow{width:180px;height:140px}.pepitaWalk{--pepita-frame:130px;--pepita-neutral:-130px;--pepita-strip-shift:-520px}
   .viewScroll{padding:20px 14px 90px}
   .sectionHeader{align-items:center}.sectionHeader h2{font-size:24px}
   .sectionPepita{width:66px;height:66px}
