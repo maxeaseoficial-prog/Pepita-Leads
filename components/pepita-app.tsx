@@ -104,7 +104,7 @@ const DEFAULT_PREFS:Prefs = {
   defaultExport:"xlsx"
 };
 
-const VOICE_BARS=[14,24,32,38,30,20,13,18,27,34,26,16,11,20,30,37,28,18,13,22,33,39,31,21,14,19,29,35,25,17,12,20];
+const VOICE_BAR_COUNT=32;
 
 function defaultSearch(prefs:Prefs):SearchPayload {
   return {
@@ -171,7 +171,12 @@ export function PepitaApp() {
   const voiceInterimRef=useRef("");
   const voiceShouldSendRef=useRef(false);
   const voiceFailedRef=useRef(false);
+  const voiceCancelledRef=useRef(false);
   const voiceTimerRef=useRef<number|null>(null);
+  const voiceStreamRef=useRef<MediaStream|null>(null);
+  const voiceAudioContextRef=useRef<AudioContext|null>(null);
+  const voiceAnimationFrameRef=useRef<number|null>(null);
+  const voiceBarsRef=useRef<Array<HTMLSpanElement|null>>([]);
 
   useEffect(()=>{
     const storedPrefs=localStorage.getItem("pepita.prefs");
@@ -193,6 +198,7 @@ export function PepitaApp() {
   useEffect(()=>()=>{
     recognitionRef.current?.abort();
     if(voiceTimerRef.current!==null) window.clearInterval(voiceTimerRef.current);
+    stopVoiceVisualizer();
   },[]);
 
   useEffect(()=>{
@@ -206,6 +212,18 @@ export function PepitaApp() {
 
     chatScroll.scrollTo({top:chatScroll.scrollHeight,behavior:"smooth"});
   },[messages,working]);
+
+  useEffect(()=>{
+    if(view==="chat"||voiceState==="idle") return;
+    voiceCancelledRef.current=true;
+    voiceFailedRef.current=true;
+    voiceShouldSendRef.current=false;
+    try { recognitionRef.current?.abort(); } catch {}
+    stopVoiceTimer();
+    stopVoiceVisualizer();
+    setVoiceInterim("");
+    setVoiceState("idle");
+  },[view,voiceState]);
 
   async function refreshHealth() {
     try {
@@ -231,12 +249,77 @@ export function PepitaApp() {
     }
   }
 
+  function stopVoiceVisualizer() {
+    if(voiceAnimationFrameRef.current!==null) {
+      window.cancelAnimationFrame(voiceAnimationFrameRef.current);
+      voiceAnimationFrameRef.current=null;
+    }
+    voiceStreamRef.current?.getTracks().forEach(track=>track.stop());
+    voiceStreamRef.current=null;
+    if(voiceAudioContextRef.current) void voiceAudioContextRef.current.close();
+    voiceAudioContextRef.current=null;
+    voiceBarsRef.current.forEach(bar=>{
+      if(bar) bar.style.transform="scaleY(.105)";
+    });
+  }
+
+  async function startVoiceVisualizer() {
+    if(!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("MEDIA_DEVICES_UNAVAILABLE");
+    }
+
+    const stream=await navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    });
+    const audioContext=new AudioContext();
+    const source=audioContext.createMediaStreamSource(stream);
+    const analyser=audioContext.createAnalyser();
+    analyser.fftSize=256;
+    analyser.smoothingTimeConstant=.62;
+    source.connect(analyser);
+
+    voiceStreamRef.current=stream;
+    voiceAudioContextRef.current=audioContext;
+    if(audioContext.state==="suspended") await audioContext.resume();
+
+    const frequencyData=new Uint8Array(analyser.frequencyBinCount);
+    const timeData=new Uint8Array(analyser.fftSize);
+    const half=VOICE_BAR_COUNT/2;
+
+    const renderVoice=()=>{
+      analyser.getByteFrequencyData(frequencyData);
+      analyser.getByteTimeDomainData(timeData);
+
+      let squareSum=0;
+      for(const sample of timeData) {
+        const centered=(sample-128)/128;
+        squareSum+=centered*centered;
+      }
+      const rms=Math.sqrt(squareSum/timeData.length);
+      const voiceGate=Math.min(1,Math.max(0,(rms-.035)/.16));
+
+      for(let index=0;index<VOICE_BAR_COUNT;index+=1) {
+        const mirrored=index<half?half-1-index:index-half;
+        const frequencyIndex=Math.min(frequencyData.length-3,2+mirrored*3);
+        const band=(frequencyData[frequencyIndex]+frequencyData[frequencyIndex+1]+frequencyData[frequencyIndex+2])/3/255;
+        const response=voiceGate*(.38+band*.62);
+        const height=Math.round(4+Math.pow(response,.78)*34);
+        const bar=voiceBarsRef.current[index];
+        if(bar) bar.style.transform=`scaleY(${height/38})`;
+      }
+
+      voiceAnimationFrameRef.current=window.requestAnimationFrame(renderVoice);
+    };
+    renderVoice();
+  }
+
   function resetVoiceRefs() {
     recognitionRef.current=null;
     voiceFinalRef.current="";
     voiceInterimRef.current="";
     voiceShouldSendRef.current=false;
     voiceFailedRef.current=false;
+    voiceCancelledRef.current=false;
   }
 
   function voiceErrorMessage(error:string) {
@@ -254,7 +337,7 @@ export function PepitaApp() {
     recognitionRef.current.stop();
   }
 
-  function startVoiceInput() {
+  async function startVoiceInput() {
     if(working||voiceState!=="idle") return;
 
     const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -271,6 +354,7 @@ export function PepitaApp() {
     voiceInterimRef.current="";
     voiceShouldSendRef.current=false;
     voiceFailedRef.current=false;
+    voiceCancelledRef.current=false;
 
     const recognition=new Recognition();
     recognitionRef.current=recognition;
@@ -307,12 +391,14 @@ export function PepitaApp() {
       voiceFailedRef.current=true;
       voiceShouldSendRef.current=false;
       stopVoiceTimer();
+      stopVoiceVisualizer();
       setVoiceError(voiceErrorMessage(event.error));
       setVoiceState("idle");
     };
 
     recognition.onend=()=>{
       stopVoiceTimer();
+      stopVoiceVisualizer();
       const transcript=`${voiceFinalRef.current} ${voiceInterimRef.current}`.trim().replace(/\s+/g," ");
       const shouldSend=voiceShouldSendRef.current;
       const failed=voiceFailedRef.current;
@@ -330,11 +416,23 @@ export function PepitaApp() {
     };
 
     try {
+      await startVoiceVisualizer();
+      if(voiceCancelledRef.current) {
+        stopVoiceVisualizer();
+        resetVoiceRefs();
+        setVoiceState("idle");
+        return;
+      }
       recognition.start();
-    } catch {
+    } catch(error) {
+      stopVoiceVisualizer();
       resetVoiceRefs();
       setVoiceState("idle");
-      setVoiceError("Não consegui iniciar o microfone. Tente novamente.");
+      const denied=error instanceof DOMException&&(error.name==="NotAllowedError"||error.name==="SecurityError");
+      setVoiceError(denied
+        ?"Permita o acesso ao microfone para enviar mensagens por voz."
+        :"Não consegui iniciar o microfone. Tente novamente."
+      );
     }
   }
 
@@ -590,14 +688,14 @@ export function PepitaApp() {
                     {voiceError && <p className="voiceError" role="alert">{voiceError}</p>}
                     <div className="composerTools">
                       <button type="button" title="Busca estruturada" aria-label="Abrir busca estruturada" onClick={()=>setStructuredOpen(true)}><FilterIcon/></button>
-                      <button type="button" className="voiceStartButton" title="Gravar mensagem de voz" aria-label="Gravar mensagem de voz" disabled={working} onClick={startVoiceInput}><MicIcon/></button>
+                      <button type="button" className="voiceStartButton" title="Gravar mensagem de voz" aria-label="Gravar mensagem de voz" disabled={working} onClick={()=>void startVoiceInput()}><MicIcon/></button>
                       <button type="submit" className="sendButton" aria-label="Enviar mensagem" disabled={working}><SendIcon/></button>
                     </div>
                   </>
                 ) : (
                   <div className="voiceRecorder" role="group" aria-label="Gravação de voz">
                     <div className="voiceWave" aria-hidden="true">
-                      {VOICE_BARS.map((height,index)=><span key={index} style={{height,animationDelay:`-${index*37}ms`}}/>)}
+                      {Array.from({length:VOICE_BAR_COUNT},(_,index)=><span key={index} ref={element=>{voiceBarsRef.current[index]=element;}}/>)}
                     </div>
                     <div className="voiceMeta" aria-live="polite">
                       <strong>{voiceState==="starting"?"Preparando":voiceState==="processing"?"Processando":"Ouvindo"}</strong>
