@@ -76,7 +76,7 @@ svg{width:20px;height:20px}
   --pepita-frame:165px;--pepita-neutral:-165px;--pepita-strip-shift:-660px;
   width:var(--pepita-frame);height:var(--pepita-frame);flex:0 0 var(--pepita-frame);border-radius:18px;
   background:url('/pepita/pepita-walk-sprite.png') 0 0/400% 100% no-repeat;
-  image-rendering:pixelated;animation:pepitaWalkFrames .56s steps(4,end) infinite;will-change:background-position
+  image-rendering:pixelated;animation:pepitaWalkFrames 1.12s steps(4,end) infinite;will-change:background-position
 }
 @keyframes pepitaWalkFrames{to{background-position-x:var(--pepita-strip-shift)}}
 @media(prefers-reduced-motion:reduce){.pepitaWalk{animation:none;background-position-x:var(--pepita-neutral)}}
