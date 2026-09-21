@@ -396,7 +396,6 @@ export function PepitaApp() {
             </div>
 
             <form className="composer" onSubmit={e=>{e.preventDefault();handleChat();}}>
-              <img src="/pepita/normal.png" alt="" className="composerAvatar"/>
               <div className="composerBody">
                 <textarea
                   value={chatInput}
