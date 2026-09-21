@@ -72,7 +72,14 @@ svg{width:20px;height:20px}
   background:radial-gradient(circle,rgba(246,197,21,.17),transparent 60%),linear-gradient(180deg,#101213,#0d0f11);
   overflow:hidden
 }
-.heroGlow img{height:165px;width:165px;object-fit:cover;border-radius:18px}
+.heroGlow img{height:165px;width:165px;object-fit:cover;border-radius:18px;animation:pepitaWalk .8s steps(2,end) infinite;transform-origin:50% 88%;will-change:transform}
+@keyframes pepitaWalk{
+  0%,100%{transform:translate3d(0,0,0) rotate(0)}
+  25%{transform:translate3d(-3px,-3px,0) rotate(-1.5deg)}
+  50%{transform:translate3d(0,0,0) rotate(0)}
+  75%{transform:translate3d(3px,-3px,0) rotate(1.5deg)}
+}
+@media(prefers-reduced-motion:reduce){.heroGlow img{animation:none}}
 .eyebrow{margin:0 0 6px;color:var(--gold);font-size:10px;font-weight:850;letter-spacing:.16em}
 .welcome h1{font-size:36px;line-height:1.1;margin:0 0 10px;letter-spacing:-.035em}
 .welcome h1 span{color:var(--gold)}
