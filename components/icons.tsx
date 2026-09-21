@@ -13,6 +13,9 @@ export const ExportIcon=(p:Props)=><Base {...p}><path d="M12 3v12"/><path d="m7 
 export const HistoryIcon=(p:Props)=><Base {...p}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></Base>;
 export const SettingsIcon=(p:Props)=><Base {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.3 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4H21a1.7 1.7 0 0 0-1.6 1Z"/></Base>;
 export const SendIcon=(p:Props)=><Base {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Base>;
+export const MicIcon=(p:Props)=><Base {...p}><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></Base>;
+export const StopIcon=(p:Props)=><Base {...p}><rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/></Base>;
+export const ArrowUpIcon=(p:Props)=><Base {...p}><path d="M12 20V4M6 10l6-6 6 6"/></Base>;
 export const FilterIcon=(p:Props)=><Base {...p}><path d="M4 5h16M7 12h10M10 19h4"/></Base>;
 export const BuildingIcon=(p:Props)=><Base {...p}><path d="M4 21V5l8-3 8 3v16"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M9 17h.01M15 17h.01M2 21h20"/></Base>;
 export const FileIcon=(p:Props)=><Base {...p}><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></Base>;

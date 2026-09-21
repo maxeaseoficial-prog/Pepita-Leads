@@ -13,6 +13,7 @@ import { parseChatCommand } from "@/lib/chat-parser";
 import { downloadFile, EXPORT_COLUMNS } from "@/lib/export";
 import { money } from "@/lib/format";
 import {
+  ArrowUpIcon,
   ArrowRightIcon,
   BuildingIcon,
   ChatIcon,
@@ -23,15 +24,54 @@ import {
   GlobeIcon,
   HistoryIcon,
   MapPinIcon,
+  MicIcon,
   PhoneIcon,
   ResultsIcon,
   SearchIcon,
   SendIcon,
   SettingsIcon,
-  SparkIcon
+  SparkIcon,
+  StopIcon
 } from "./icons";
 
 type View = "chat"|"results"|"export"|"history"|"settings";
+type VoiceState = "idle"|"starting"|"listening"|"processing";
+
+type VoiceRecognitionResult = {
+  isFinal:boolean;
+  0?:{transcript:string};
+};
+
+type VoiceRecognitionEvent = {
+  resultIndex:number;
+  results:{
+    length:number;
+    [index:number]:VoiceRecognitionResult;
+  };
+};
+
+type VoiceRecognition = {
+  lang:string;
+  continuous:boolean;
+  interimResults:boolean;
+  maxAlternatives:number;
+  start:()=>void;
+  stop:()=>void;
+  abort:()=>void;
+  onstart:(()=>void)|null;
+  onresult:((event:VoiceRecognitionEvent)=>void)|null;
+  onerror:((event:{error:string})=>void)|null;
+  onend:(()=>void)|null;
+};
+
+type VoiceRecognitionConstructor = new()=>VoiceRecognition;
+
+declare global {
+  interface Window {
+    SpeechRecognition?:VoiceRecognitionConstructor;
+    webkitSpeechRecognition?:VoiceRecognitionConstructor;
+  }
+}
 
 type ChatMessage = {
   id:string;
@@ -63,6 +103,8 @@ const DEFAULT_PREFS:Prefs = {
   hasEmail:false,
   defaultExport:"xlsx"
 };
+
+const VOICE_BARS=[14,24,32,38,30,20,13,18,27,34,26,16,11,20,30,37,28,18,13,22,33,39,31,21,14,19,29,35,25,17,12,20];
 
 function defaultSearch(prefs:Prefs):SearchPayload {
   return {
@@ -119,7 +161,17 @@ export function PepitaApp() {
   const [exportFormat,setExportFormat]=useState<"csv"|"xlsx">("xlsx");
   const [exportColumns,setExportColumns]=useState<string[]>(()=>EXPORT_COLUMNS.map(([key])=>key));
   const [exportDone,setExportDone]=useState<string>("");
+  const [voiceState,setVoiceState]=useState<VoiceState>("idle");
+  const [voiceSeconds,setVoiceSeconds]=useState(0);
+  const [voiceError,setVoiceError]=useState("");
+  const [voiceInterim,setVoiceInterim]=useState("");
   const scrollRef=useRef<HTMLDivElement>(null);
+  const recognitionRef=useRef<VoiceRecognition|null>(null);
+  const voiceFinalRef=useRef("");
+  const voiceInterimRef=useRef("");
+  const voiceShouldSendRef=useRef(false);
+  const voiceFailedRef=useRef(false);
+  const voiceTimerRef=useRef<number|null>(null);
 
   useEffect(()=>{
     const storedPrefs=localStorage.getItem("pepita.prefs");
@@ -136,6 +188,11 @@ export function PepitaApp() {
       try { setHistory(JSON.parse(storedHistory)); } catch {}
     }
     refreshHealth();
+  },[]);
+
+  useEffect(()=>()=>{
+    recognitionRef.current?.abort();
+    if(voiceTimerRef.current!==null) window.clearInterval(voiceTimerRef.current);
   },[]);
 
   useEffect(()=>{
@@ -165,6 +222,120 @@ export function PepitaApp() {
   function updatePrefs(next:Prefs) {
     setPrefs(next);
     localStorage.setItem("pepita.prefs",JSON.stringify(next));
+  }
+
+  function stopVoiceTimer() {
+    if(voiceTimerRef.current!==null) {
+      window.clearInterval(voiceTimerRef.current);
+      voiceTimerRef.current=null;
+    }
+  }
+
+  function resetVoiceRefs() {
+    recognitionRef.current=null;
+    voiceFinalRef.current="";
+    voiceInterimRef.current="";
+    voiceShouldSendRef.current=false;
+    voiceFailedRef.current=false;
+  }
+
+  function voiceErrorMessage(error:string) {
+    if(error==="not-allowed"||error==="service-not-allowed") return "Permita o acesso ao microfone para enviar mensagens por voz.";
+    if(error==="audio-capture") return "Não encontrei um microfone disponível neste dispositivo.";
+    if(error==="no-speech") return "Não ouvi nenhuma fala. Toque no microfone e tente novamente.";
+    if(error==="network") return "O reconhecimento de voz ficou indisponível. Verifique sua conexão e tente novamente.";
+    return "Não consegui reconhecer esse áudio. Tente falar novamente.";
+  }
+
+  function finishVoiceInput(send:boolean) {
+    if(!recognitionRef.current||voiceState==="processing") return;
+    voiceShouldSendRef.current=send;
+    setVoiceState("processing");
+    recognitionRef.current.stop();
+  }
+
+  function startVoiceInput() {
+    if(working||voiceState!=="idle") return;
+
+    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!Recognition) {
+      setVoiceError("Este navegador não oferece reconhecimento de voz. Use Chrome, Edge ou Safari atualizado.");
+      return;
+    }
+
+    setVoiceError("");
+    setVoiceInterim("");
+    setVoiceSeconds(0);
+    setVoiceState("starting");
+    voiceFinalRef.current="";
+    voiceInterimRef.current="";
+    voiceShouldSendRef.current=false;
+    voiceFailedRef.current=false;
+
+    const recognition=new Recognition();
+    recognitionRef.current=recognition;
+    recognition.lang="pt-BR";
+    recognition.continuous=true;
+    recognition.interimResults=true;
+    recognition.maxAlternatives=1;
+
+    recognition.onstart=()=>{
+      setVoiceState("listening");
+      voiceTimerRef.current=window.setInterval(()=>setVoiceSeconds(value=>value+1),1000);
+    };
+
+    recognition.onresult=(event)=>{
+      let finalChunk="";
+      let interimChunk="";
+      for(let index=event.resultIndex;index<event.results.length;index+=1) {
+        const result=event.results[index];
+        const transcript=result[0]?.transcript?.trim()||"";
+        if(!transcript) continue;
+        if(result.isFinal) finalChunk+=`${transcript} `;
+        else interimChunk+=`${transcript} `;
+      }
+
+      if(finalChunk.trim()) {
+        voiceFinalRef.current=`${voiceFinalRef.current} ${finalChunk}`.trim().replace(/\s+/g," ");
+      }
+      voiceInterimRef.current=interimChunk.trim();
+      setVoiceInterim(voiceInterimRef.current);
+    };
+
+    recognition.onerror=(event)=>{
+      if(event.error==="aborted") return;
+      voiceFailedRef.current=true;
+      voiceShouldSendRef.current=false;
+      stopVoiceTimer();
+      setVoiceError(voiceErrorMessage(event.error));
+      setVoiceState("idle");
+    };
+
+    recognition.onend=()=>{
+      stopVoiceTimer();
+      const transcript=`${voiceFinalRef.current} ${voiceInterimRef.current}`.trim().replace(/\s+/g," ");
+      const shouldSend=voiceShouldSendRef.current;
+      const failed=voiceFailedRef.current;
+      setVoiceState("idle");
+      setVoiceInterim("");
+      resetVoiceRefs();
+
+      if(failed) return;
+      if(!transcript) {
+        setVoiceError("Não ouvi nenhuma fala. Toque no microfone e tente novamente.");
+        return;
+      }
+      if(shouldSend) void handleChat(transcript);
+      else setChatInput(transcript);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      resetVoiceRefs();
+      setVoiceState("idle");
+      setVoiceError("Não consegui iniciar o microfone. Tente novamente.");
+    }
   }
 
   function addMessage(role:ChatMessage["role"],text:string,kind:ChatMessage["kind"]="plain") {
@@ -403,21 +574,40 @@ export function PepitaApp() {
               </div>
             </div>
 
-            <form className="composer" onSubmit={e=>{e.preventDefault();handleChat();}}>
+            <form className={`composer ${voiceState!=="idle"?"voiceActive":""}`} onSubmit={e=>{e.preventDefault();handleChat();}}>
               <div className="composerBody">
-                <textarea
-                  value={chatInput}
-                  onChange={e=>setChatInput(e.target.value)}
-                  onKeyDown={e=>{
-                    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleChat();}
-                  }}
-                  placeholder="Digite sua busca ou peça o que precisar..."
-                  rows={1}
-                />
-                <div className="composerTools">
-                  <button type="button" title="Busca estruturada" onClick={()=>setStructuredOpen(true)}><FilterIcon/></button>
-                  <button type="submit" className="sendButton" disabled={working}><SendIcon/></button>
-                </div>
+                {voiceState==="idle" ? (
+                  <>
+                    <textarea
+                      value={chatInput}
+                      onChange={e=>{setChatInput(e.target.value);setVoiceError("");}}
+                      onKeyDown={e=>{
+                        if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleChat();}
+                      }}
+                      placeholder="Digite sua busca ou grave uma mensagem..."
+                      rows={1}
+                    />
+                    {voiceError && <p className="voiceError" role="alert">{voiceError}</p>}
+                    <div className="composerTools">
+                      <button type="button" title="Busca estruturada" aria-label="Abrir busca estruturada" onClick={()=>setStructuredOpen(true)}><FilterIcon/></button>
+                      <button type="button" className="voiceStartButton" title="Gravar mensagem de voz" aria-label="Gravar mensagem de voz" disabled={working} onClick={startVoiceInput}><MicIcon/></button>
+                      <button type="submit" className="sendButton" aria-label="Enviar mensagem" disabled={working}><SendIcon/></button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="voiceRecorder" role="group" aria-label="Gravação de voz">
+                    <div className="voiceWave" aria-hidden="true">
+                      {VOICE_BARS.map((height,index)=><span key={index} style={{height,animationDelay:`-${index*37}ms`}}/>)}
+                    </div>
+                    <div className="voiceMeta" aria-live="polite">
+                      <strong>{voiceState==="starting"?"Preparando":voiceState==="processing"?"Processando":"Ouvindo"}</strong>
+                      <span>{String(Math.floor(voiceSeconds/60)).padStart(2,"0")}:{String(voiceSeconds%60).padStart(2,"0")}</span>
+                      {voiceInterim && <span className="srOnly">{voiceInterim}</span>}
+                    </div>
+                    <button type="button" className="voiceControl voiceStop" title="Parar e revisar" aria-label="Parar gravação e revisar texto" disabled={voiceState!=="listening"} onClick={()=>finishVoiceInput(false)}><StopIcon/></button>
+                    <button type="button" className="voiceControl voiceSend" title="Enviar áudio" aria-label="Encerrar gravação e enviar mensagem" disabled={voiceState!=="listening"} onClick={()=>finishVoiceInput(true)}><ArrowUpIcon/></button>
+                  </div>
+                )}
               </div>
             </form>
           </section>
