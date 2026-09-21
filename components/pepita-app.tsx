@@ -139,7 +139,15 @@ export function PepitaApp() {
   },[]);
 
   useEffect(()=>{
-    scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:"smooth"});
+    const chatScroll=scrollRef.current;
+    if(!chatScroll) return;
+
+    if(!messages.length&&!working) {
+      chatScroll.scrollTo({top:0,behavior:"auto"});
+      return;
+    }
+
+    chatScroll.scrollTo({top:chatScroll.scrollHeight,behavior:"smooth"});
   },[messages,working]);
 
   async function refreshHealth() {
