@@ -23,7 +23,6 @@ import {
   CloseIcon,
   ExportIcon,
   FileIcon,
-  FilterIcon,
   GlobeIcon,
   GoogleIcon,
   HistoryIcon,
@@ -805,7 +804,6 @@ export function PepitaApp() {
                     />
                     {voiceError && <p className="voiceError" role="alert">{voiceError}</p>}
                     <div className="composerTools">
-                      <button type="button" title="Busca estruturada" aria-label="Abrir busca estruturada" onClick={()=>setStructuredOpen(true)}><FilterIcon/></button>
                       <button type="button" className="voiceStartButton" title="Gravar mensagem de voz" aria-label="Gravar mensagem de voz" disabled={working} onClick={()=>void startVoiceInput()}><MicIcon/></button>
                       <button type="submit" className="sendButton" aria-label="Enviar mensagem" disabled={working}><SendIcon/></button>
                     </div>
