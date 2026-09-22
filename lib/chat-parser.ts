@@ -5,6 +5,7 @@ const CITY_UF = new Map([
   ["sao paulo","SP"],["são paulo","SP"],["campinas","SP"],["santos","SP"],["sorocaba","SP"],
   ["rio de janeiro","RJ"],["belo horizonte","MG"],["uberlandia","MG"],["uberlandia","MG"],
   ["joinville","SC"],["florianopolis","SC"],["florianópolis","SC"],
+  ["porto uniao","SC"],
   ["porto alegre","RS"],["caxias do sul","RS"],
   ["cuiaba","MT"],["cuiabá","MT"],["campo grande","MS"],
   ["brasilia","DF"],["brasília","DF"],["goiania","GO"],["goiânia","GO"],
@@ -54,20 +55,19 @@ function parseNiche(text: string, current?: SearchPayload | null) {
 }
 
 function inferLocation(text: string, current?: SearchPayload | null) {
-  const explicitUf = text.match(/\b([A-Z]{2})\b/);
-  let state = explicitUf?.[1] || current?.state || "";
-
-  const patterns = [
-    /\bna\s+cidade\s+de\s+([A-Za-zÀ-ÿ\s]+?)(?=\s+(?:com|sem|de|capital|mais|somente|só)\b|,|$)/i,
-    /\bem\s+([A-Za-zÀ-ÿ\s]+?)(?=\s+(?:com|sem|de|capital|mais|somente|só)\b|,|$)/i
-  ];
-
+  const explicitUf = text.match(/\b(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/i);
+  let state = explicitUf?.[1].toUpperCase() || current?.state || "";
   let city = current?.city || "";
-  for (const re of patterns) {
-    const m = text.match(re);
-    if (m) {
-      city = m[1].trim().replace(/\s+[A-Z]{2}$/,"").trim();
-      break;
+
+  const location=text.match(/\b(?:na\s+cidade\s+de|em)\s+(.+?)(?=\s+(?:com|sem|capital|mais|somente|só)\b|$)/i);
+  if(location) {
+    const raw=location[1].trim().replace(/[,.]+$/,"").trim();
+    const withUf=raw.match(/^(.*?)(?:\s*[-/,]\s*|\s+)([A-Z]{2})$/i);
+    if(withUf) {
+      city=withUf[1].trim();
+      state=withUf[2].toUpperCase();
+    } else {
+      city=raw;
     }
   }
   const inferred = CITY_UF.get(normalize(city));
