@@ -95,6 +95,7 @@ export type HealthResponse = {
   providers: {
     googlePlaces: boolean;
     websiteEnrichment: boolean;
+    mapsBrowser: boolean;
   };
 };
 

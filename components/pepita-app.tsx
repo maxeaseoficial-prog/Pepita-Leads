@@ -238,7 +238,7 @@ export function PepitaApp() {
     } catch {
       setHealth({
         ok:false,ready:false,database:"error",datasetMode:"ERROR",
-        providers:{googlePlaces:false,websiteEnrichment:false}
+        providers:{googlePlaces:false,websiteEnrichment:false,mapsBrowser:true}
       });
     }
   }
@@ -548,7 +548,9 @@ export function PepitaApp() {
     if(command.type==="source") {
       addMessage("assistant",dataset?.mode==="RFB_OPEN_DATA"
         ?"Os dados cadastrais da busca vêm da base pública CNPJ importada pela Pepita. Site e Instagram, quando habilitados, usam enriquecimento separado."
-        :"A fonte da busca ainda não está pronta.");
+        :dataset?.mode==="GOOGLE_MAPS_BROWSER"
+          ?"Os resultados foram consultados diretamente nas fichas públicas do Google Maps no momento da busca."
+          :"A fonte da busca ainda não está pronta.");
       return;
     }
 
@@ -609,8 +611,9 @@ export function PepitaApp() {
     } finally { setCrmImporting(false); }
   }
 
-  const status=health?.ready?"ONLINE":"CONFIGURAR";
-  const providerSite=Boolean(health?.providers.googlePlaces);
+  const searchOnline=Boolean(health?.providers.mapsBrowser||health?.ready);
+  const status=searchOnline?"ONLINE":"CONFIGURAR";
+  const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
 
   return (
     <div className="appShell">
@@ -638,7 +641,7 @@ export function PepitaApp() {
               <small>Seu assistente de prospecção empresarial</small>
             </div>
           </div>
-          <button className={`statusBadge ${health?.ready?"online":""}`} onClick={refreshHealth}>
+          <button className={`statusBadge ${searchOnline?"online":""}`} onClick={refreshHealth}>
             <span className="statusDot"/>
             {status}
           </button>
@@ -834,7 +837,7 @@ function ResultsView({results,dataset,onDetail,onNewSearch,onAddToCrm,crmImporti
         <button className="ghostButton" onClick={onNewSearch}>Nova busca</button>
       </div>
 
-      {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode}</strong></div>}
+      {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
 
       {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
 
@@ -842,15 +845,16 @@ function ResultsView({results,dataset,onDetail,onNewSearch,onAddToCrm,crmImporti
         <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou abra a busca estruturada.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>
       ) : (
         <div className="resultsGrid">
-          {results.map(item=><ResultCard key={item.cnpj} item={item} onDetail={()=>onDetail(item.cnpj)}/>)}
+          {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
         </div>
       )}
     </div>
   );
 }
 
-function ResultCard({item,onDetail}:{item:CompanyLead;onDetail:()=>void}) {
+function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const digits=(item.phone||"").replace(/\D/g,"");
+  const fromMaps=!item.cnpj;
   return (
     <article className="resultCard">
       <div className="resultTop">
@@ -858,10 +862,12 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail:()=>void}) {
         <div className="resultTitle"><h3>{item.tradeName || item.legalName}</h3><span>{item.category || item.cnae} · {item.city}/{item.state}</span></div>
         <span className={`potentialTag ${item.potential.level.toLowerCase()}`}>{potentialLabel(item.potential.level)}</span>
       </div>
-      <div className="tagRow"><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></div>
+      <div className="tagRow">{fromMaps?<><span>Google Maps</span><span>Consulta ao vivo</span></>:<><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}</div>
       <div className="infoGrid">
-        <Info label="CNPJ" value={item.cnpjFormatted}/>
-        <Info label="Capital social" value={money(item.capitalSocialCents)}/>
+        {fromMaps?<Info label="Endereço" value={item.address||"Não informado"}/>:<>
+          <Info label="CNPJ" value={item.cnpjFormatted||"Não disponível nesta fonte"}/>
+          <Info label="Capital social" value={money(item.capitalSocialCents)}/>
+        </>}
         <Info label="Telefone" value={item.phone || "Não informado"}/>
         <Info label="E-mail" value={item.email || "Não informado"}/>
         <Info label="Site" value={item.website || "Não encontrado"}/>
@@ -871,7 +877,7 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail:()=>void}) {
         {item.mapsUrl && <a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
         {digits && <a href={`https://wa.me/55${digits}`} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp</a>}
         {item.website && <a href={item.website} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
-        <button className="primarySmall" onClick={onDetail}>Ver detalhes <ArrowRightIcon/></button>
+        {onDetail&&<button className="primarySmall" onClick={onDetail}>Ver detalhes <ArrowRightIcon/></button>}
       </div>
     </article>
   );
@@ -942,6 +948,7 @@ function SettingsView({health,prefs,setPrefs,refreshHealth}:{health:HealthRespon
           <StatusLine label="Banco" value={health?.database || "verificando"} ok={health?.database==="connected"}/>
           <StatusLine label="Base RFB" value={health?.ready?"pronta":health?.datasetMode || "não configurada"} ok={Boolean(health?.ready)}/>
           <StatusLine label="Google Places" value={health?.providers.googlePlaces?"configurado":"opcional"} ok={Boolean(health?.providers.googlePlaces)}/>
+          <StatusLine label="Busca no Google Maps" value={health?.providers.mapsBrowser?"disponível":"indisponível"} ok={Boolean(health?.providers.mapsBrowser)}/>
           <button className="ghostButton wide" onClick={refreshHealth}>Verificar novamente</button>
         </div>
         <div className="panelCard">
@@ -1000,7 +1007,7 @@ function StructuredModal({value,setValue,siteAvailable,onClose,onRun}:{
           <label className={!siteAvailable?"disabled":""}><input disabled={!siteAvailable} type="checkbox" checked={value.onlyWithoutSite} onChange={e=>setValue({...value,onlyWithoutSite:e.target.checked})}/>Somente sem site</label>
           <label className={!siteAvailable?"disabled":""}><input disabled={!siteAvailable} type="checkbox" checked={value.findInstagram} onChange={e=>setValue({...value,findInstagram:e.target.checked})}/>Buscar Instagram</label>
         </div></fieldset>
-        {!siteAvailable&&<p className="formHint">Site e Instagram ficam disponíveis quando GOOGLE_PLACES_API_KEY estiver configurada na Vercel.</p>}
+        {!siteAvailable&&<p className="formHint">Site e Instagram não estão disponíveis neste ambiente.</p>}
         <button className="primaryButton wide" disabled={!valid} onClick={onRun}>Iniciar busca</button>
       </div>
     </div>

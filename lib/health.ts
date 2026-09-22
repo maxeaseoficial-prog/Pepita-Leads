@@ -10,7 +10,8 @@ export async function getHealth(): Promise<HealthResponse> {
       datasetMode: "NOT_CONFIGURED",
       providers: {
         googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY)
+        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser: true
       }
     };
   }
@@ -30,7 +31,8 @@ export async function getHealth(): Promise<HealthResponse> {
       datasetReference: meta.dataset_reference || null,
       providers: {
         googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY)
+        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser: true
       }
     };
   } catch {
@@ -41,7 +43,8 @@ export async function getHealth(): Promise<HealthResponse> {
       datasetMode: "ERROR",
       providers: {
         googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY)
+        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser: true
       }
     };
   }
