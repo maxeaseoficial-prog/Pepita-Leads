@@ -79,9 +79,10 @@ export async function POST(request:Request) {
           lead.cnpj,lead.companyName,lead.tradeName,lead.category,lead.city,lead.state,
           lead.phone,lead.email,lead.website,lead.potentialLevel,lead.potentialScore,ordinal
         ];
-        const placeholders=values.map(value=>{
+        const casts=["text","text","text","text","text","text","text","text","text","text","integer","integer"];
+        const placeholders=values.map((value,index)=>{
           params.push(value);
-          return `$${params.length}`;
+          return `$${params.length}::${casts[index]}`;
         });
         return `(${placeholders.join(",")})`;
       });
