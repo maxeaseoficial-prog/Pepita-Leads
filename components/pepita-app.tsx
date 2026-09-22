@@ -628,8 +628,6 @@ export function PepitaApp() {
     } finally { setCrmImporting(false); }
   }
 
-  const searchOnline=Boolean(health?.providers.mapsBrowser||health?.ready);
-  const status=searchOnline?"ONLINE":"CONFIGURAR";
   const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
 
   return (
@@ -654,14 +652,10 @@ export function PepitaApp() {
           <div className="brand">
             <img src="/pepita/icon-64.png" alt=""/>
             <div>
-              <div className="brandTitle">PEPITA <span>BETA</span></div>
+              <div className="brandTitle">PEPITA</div>
               <small>Seu assistente de prospecção empresarial</small>
             </div>
           </div>
-          <button className={`statusBadge ${searchOnline?"online":""}`} onClick={refreshHealth}>
-            <span className="statusDot"/>
-            {status}
-          </button>
         </header>
 
         {view===null&&<span className="srOnly" role="status">Abrindo a área selecionada…</span>}
