@@ -874,10 +874,8 @@ export function PepitaApp() {
 
         {view==="settings" && (
           <SettingsView
-            health={health}
             prefs={prefs}
             setPrefs={updatePrefs}
-            refreshHealth={refreshHealth}
             user={authUser}
             authConfigured={isSupabaseAuthConfigured()}
             onOpenAuth={setAuthMode}
@@ -1041,8 +1039,8 @@ function HistoryView({history,onRestore,onClear}:{history:HistoryItem[];onRestor
   );
 }
 
-function SettingsView({health,prefs,setPrefs,refreshHealth,user,authConfigured,onOpenAuth}:{
-  health:HealthResponse|null;prefs:Prefs;setPrefs:(x:Prefs)=>void;refreshHealth:()=>void;
+function SettingsView({prefs,setPrefs,user,authConfigured,onOpenAuth}:{
+  prefs:Prefs;setPrefs:(x:Prefs)=>void;
   user:User|null;authConfigured:boolean;onOpenAuth:(mode:AuthMode)=>void;
 }) {
   const [name,setName]=useState(String(user?.user_metadata?.name||""));
@@ -1086,14 +1084,6 @@ function SettingsView({health,prefs,setPrefs,refreshHealth,user,authConfigured,o
     <div className="viewScroll">
       <div className="sectionHeader"><div><p className="eyebrow">CONFIGURAÇÕES</p><h2>Preferências</h2><p>Defina como a Pepita deve trabalhar por padrão.</p></div><img className="sectionPepita" src="/pepita/documents.png" alt=""/></div>
       <div className="settingsGrid">
-        <div className="panelCard">
-          <h3>Infraestrutura</h3>
-          <StatusLine label="Banco" value={health?.database || "verificando"} ok={health?.database==="connected"}/>
-          <StatusLine label="Base RFB" value={health?.ready?"pronta":health?.datasetMode || "não configurada"} ok={Boolean(health?.ready)}/>
-          <StatusLine label="Google Places" value={health?.providers.googlePlaces?"configurado":"opcional"} ok={Boolean(health?.providers.googlePlaces)}/>
-          <StatusLine label="Busca no Google Maps" value={health?.providers.mapsBrowser?"disponível":"indisponível"} ok={Boolean(health?.providers.mapsBrowser)}/>
-          <button className="ghostButton wide" onClick={refreshHealth}>Verificar novamente</button>
-        </div>
         <div className="panelCard">
           <h3>Busca padrão</h3>
           <label>Quantidade<select value={prefs.defaultQuantity} onChange={e=>setPrefs({...prefs,defaultQuantity:Number(e.target.value)})}>{[10,20,30,40,50,60].map(x=><option key={x}>{x}</option>)}</select></label>
@@ -1208,10 +1198,6 @@ function AuthModal({mode,onMode,onClose}:{mode:AuthMode;onMode:(mode:AuthMode)=>
       <div className="authSwitch">{mode==="login"?"Ainda não tem uma conta?":"Já tem uma conta?"}<button onClick={()=>switchMode(mode==="login"?"signup":"login")}>{mode==="login"?"Cadastre-se grátis":"Entrar"}</button></div>
     </section>
   </div>;
-}
-
-function StatusLine({label,value,ok}:{label:string;value:string;ok:boolean}) {
-  return <div className="statusLine"><span>{label}</span><strong className={ok?"ok":""}>{value}</strong></div>;
 }
 
 function StructuredModal({value,setValue,siteAvailable,onClose,onRun}:{
