@@ -313,6 +313,7 @@ svg{width:20px;height:20px}
 .crmDrawerHeader h2{margin:0 0 3px;font-size:18px;line-height:1.25}
 .crmDrawerHeader p{margin:0;color:var(--muted);font-size:11px}
 .crmDrawerHeader .closeButton{position:static}
+.crmDrawerError{margin:12px 0 0;border:1px solid #703838;background:#2b1416;color:#ffb3b3;border-radius:9px;padding:9px 10px;font-size:11px;line-height:1.45}
 .crmTabs{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:5px;margin:14px 0}
 .crmTabs button{min-width:0;border:1px solid transparent;border-radius:9px;background:transparent;color:#959ba3;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;white-space:nowrap}
 .crmTabs button[aria-selected=true]{border-color:#54470c;background:#211d08;color:var(--gold)}

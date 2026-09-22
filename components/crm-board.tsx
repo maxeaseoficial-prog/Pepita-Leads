@@ -213,10 +213,10 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
         <DragOverlay>{activeCard?<CrmCardPreview card={activeCard}/>:null}</DragOverlay>
       </DndContext>
 
-      {createColumnId&&<CreateCardPanel columns={board.columns} initialColumnId={createColumnId} saving={saving} onClose={()=>setCreateColumnId(null)} onCreate={async(columnId,form)=>{
+      {createColumnId&&<CreateCardPanel columns={board.columns} initialColumnId={createColumnId} saving={saving} error={error} onClose={()=>setCreateColumnId(null)} onCreate={async(columnId,form)=>{
         const saved=await mutate({action:"create-card",columnId,...form});if(saved)setCreateColumnId(null);return saved;
       }}/>} 
-      {selected&&<CardDrawer card={selected} saving={saving} onClose={()=>setSelectedId(null)} onSave={async form=>mutate({action:"update-card",cardId:selected.id,...form})} onComment={async comment=>mutate({action:"add-comment",cardId:selected.id,comment})} onDelete={async()=>{const removed=await mutate({action:"delete-card",cardId:selected.id});if(removed)setSelectedId(null);return removed;}}/>}
+      {selected&&<CardDrawer card={selected} saving={saving} error={error} onClose={()=>setSelectedId(null)} onSave={async form=>mutate({action:"update-card",cardId:selected.id,...form})} onComment={async comment=>mutate({action:"add-comment",cardId:selected.id,comment})} onDelete={async()=>{const removed=await mutate({action:"delete-card",cardId:selected.id});if(removed)setSelectedId(null);return removed;}}/>}
     </section>
   );
 }
@@ -261,11 +261,12 @@ function CrmCardContent({card}:{card:CrmCard}) {
   return <><div className="crmCardTop"><span className={`leadOrigin ${card.source}`}>{card.source==="search"?"Busca Pepita":"Manual"}</span><DragIcon/></div><div className="crmCardMain"><strong>{card.tradeName||card.companyName}</strong><span className="crmCardPlace"><MapPinIcon/>{[card.city,card.state].filter(Boolean).join(" / ")||"Local não informado"}</span></div></>;
 }
 
-function CreateCardPanel({columns,initialColumnId,saving,onClose,onCreate}:{columns:CrmColumn[];initialColumnId:string;saving:boolean;onClose:()=>void;onCreate:(columnId:string,form:CardForm)=>Promise<boolean>}) {
+function CreateCardPanel({columns,initialColumnId,saving,error,onClose,onCreate}:{columns:CrmColumn[];initialColumnId:string;saving:boolean;error:string;onClose:()=>void;onCreate:(columnId:string,form:CardForm)=>Promise<boolean>}) {
   const [columnId,setColumnId]=useState(initialColumnId);
   const [form,setForm]=useState<CardForm>(EMPTY_FORM);
   return <div className="crmDrawerBackdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><aside className="crmDrawer" role="dialog" aria-modal="true" aria-labelledby="create-card-title">
     <DrawerHeader titleId="create-card-title" title="Nova empresa" subtitle="Cadastre uma oportunidade manualmente." onClose={onClose}/>
+    {error&&<p className="crmDrawerError" role="alert">{error} Seus dados continuam aqui para você tentar novamente.</p>}
     <form className="crmForm" onSubmit={event=>{event.preventDefault();void onCreate(columnId,form);}}>
       <label>Etapa<select value={columnId} onChange={event=>setColumnId(event.target.value)}>{columns.map(column=><option key={column.id} value={column.id}>{column.name}</option>)}</select></label>
       <CardFields form={form} setForm={setForm}/>
@@ -274,7 +275,7 @@ function CreateCardPanel({columns,initialColumnId,saving,onClose,onCreate}:{colu
   </aside></div>;
 }
 
-function CardDrawer({card,saving,onClose,onSave,onComment,onDelete}:{card:CrmCard;saving:boolean;onClose:()=>void;onSave:(form:CardForm)=>Promise<boolean>;onComment:(comment:string)=>Promise<boolean>;onDelete:()=>Promise<boolean>}) {
+function CardDrawer({card,saving,error,onClose,onSave,onComment,onDelete}:{card:CrmCard;saving:boolean;error:string;onClose:()=>void;onSave:(form:CardForm)=>Promise<boolean>;onComment:(comment:string)=>Promise<boolean>;onDelete:()=>Promise<boolean>}) {
   const [tab,setTab]=useState<"details"|"notes"|"comments">("details");
   const [form,setForm]=useState(()=>cardForm(card));
   const [comment,setComment]=useState("");
@@ -282,6 +283,7 @@ function CardDrawer({card,saving,onClose,onSave,onComment,onDelete}:{card:CrmCar
   useEffect(()=>setForm(cardForm(card)),[card]);
   return <div className="crmDrawerBackdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><aside className="crmDrawer" role="dialog" aria-modal="true" aria-labelledby="card-title">
     <DrawerHeader titleId="card-title" title={card.tradeName||card.companyName} subtitle={[card.city,card.state].filter(Boolean).join(" / ")||"Empresa no pipeline"} onClose={onClose}/>
+    {error&&<p className="crmDrawerError" role="alert">{error} O conteúdo digitado foi mantido.</p>}
     <div className="crmTabs" role="tablist">
       <button role="tab" aria-selected={tab==="details"} onClick={()=>setTab("details")}><BuildingIcon/>Detalhes</button>
       <button role="tab" aria-selected={tab==="notes"} onClick={()=>setTab("notes")}><NoteIcon/>Observações</button>
