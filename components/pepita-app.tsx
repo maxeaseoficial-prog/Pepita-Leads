@@ -123,7 +123,7 @@ function defaultSearch(prefs:Prefs):SearchPayload {
     hasEmail:prefs.hasEmail,
     matrixOnly:false,
     onlyWithoutSite:false,
-    findInstagram:false
+    findInstagram:true
   };
 }
 

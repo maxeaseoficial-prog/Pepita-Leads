@@ -1,7 +1,7 @@
 import serverChromium from "@sparticuz/chromium";
 import { chromium, type Browser, type Page } from "playwright-core";
 import { instagramFromWebsite } from "./google-places";
-import type { CompanyLead, SearchPayload, SearchResponse } from "./types";
+import type { CompanyLead, SearchPayload, SearchResponse, SocialMatch } from "./types";
 
 const MAX_RESULTS=20;
 const MAX_CANDIDATES=40;
@@ -9,6 +9,7 @@ const CACHE_TTL_MS=15*60*1000;
 
 type CachedSearch={expiresAt:number;value:SearchResponse};
 const cache=new Map<string,CachedSearch>();
+type SearchSession={webSearchBlocked:boolean};
 
 type ScrapedPlace={
   name:string;
@@ -29,6 +30,76 @@ function stripLabel(value:string,label:string) {
 
 function normalize(value:string) {
   return clean(value).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("pt-BR");
+}
+
+const IG_RESERVED_PATHS=new Set(["accounts","direct","explore","p","reel","reels","stories","tv"]);
+const MATCH_STOP_WORDS=new Set([
+  "a","as","da","das","de","do","dos","e","em","empresa","ltda","me","para","servicos","servico"
+]);
+
+function instagramProfileUrl(value?:string|null) {
+  if(!value) return null;
+  try {
+    let parsed=new URL(value);
+    if(/(^|\.)google\.[a-z.]+$/i.test(parsed.hostname)) {
+      const target=parsed.searchParams.get("url")||parsed.searchParams.get("q");
+      if(!target) return null;
+      parsed=new URL(target);
+    }
+    if(!/(^|\.)instagram\.com$/i.test(parsed.hostname)) return null;
+    const username=parsed.pathname.split("/").filter(Boolean)[0]?.toLocaleLowerCase("pt-BR");
+    if(!username||IG_RESERVED_PATHS.has(username)) return null;
+    if(!/^[a-z0-9._]{1,64}$/i.test(username)) return null;
+    return `https://www.instagram.com/${username}/`;
+  } catch {
+    return null;
+  }
+}
+
+function meaningfulTokens(value:string) {
+  return normalize(value)
+    .replace(/[^a-z0-9 ]+/g," ")
+    .split(/\s+/)
+    .filter(token=>token.length>1&&!MATCH_STOP_WORDS.has(token));
+}
+
+function nameMatchScore(companyName:string,resultText:string) {
+  const expected=[...new Set(meaningfulTokens(companyName))];
+  if(!expected.length) return 0;
+  const actual=new Set(meaningfulTokens(resultText));
+  return expected.filter(token=>actual.has(token)).length/expected.length;
+}
+
+async function instagramFromWebSearch(
+  page:Page,
+  place:ScrapedPlace,
+  input:SearchPayload,
+  session:SearchSession
+):Promise<SocialMatch|null> {
+  if(session.webSearchBlocked) return null;
+  const query=`${place.name} ${input.city} Instagram`;
+  await navigate(page,`https://www.google.com/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=br`,25_000);
+  await acceptConsent(page);
+  if(/captcha|sorry\/index/i.test(page.url())) {
+    session.webSearchBlocked=true;
+    return null;
+  }
+
+  const candidates=await page.$$eval('a[href*="instagram.com/"]',anchors=>anchors.slice(0,8).map(anchor=>({
+    href:(anchor as HTMLAnchorElement).href,
+    text:(anchor.closest("div")?.textContent||anchor.textContent||"").replace(/\s+/g," ").trim()
+  })));
+
+  let best:{url:string;score:number}|null=null;
+  for(const candidate of candidates) {
+    const url=instagramProfileUrl(candidate.href);
+    if(!url) continue;
+    const cityBonus=normalize(candidate.text).includes(normalize(input.city))?.15:0;
+    const score=nameMatchScore(place.name,candidate.text)+cityBonus;
+    if(!best||score>best.score) best={url,score};
+  }
+  if(!best||best.score<.5) return null;
+  return {url:best.url,confidence:"MATCHED_BY_NAME_AND_CITY",source:"GOOGLE_WEB_SEARCH"};
 }
 
 function formatPhone(value:string) {
@@ -173,8 +244,17 @@ function scorePlace(place:ScrapedPlace) {
   };
 }
 
-async function toLead(place:ScrapedPlace,input:SearchPayload):Promise<CompanyLead> {
-  const instagram=input.findInstagram&&place.website?await instagramFromWebsite(place.website):null;
+async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:SearchSession):Promise<CompanyLead> {
+  let instagram:SocialMatch|null=null;
+  if(input.findInstagram) {
+    const mapsInstagram=instagramProfileUrl(place.website);
+    if(mapsInstagram) {
+      instagram={url:mapsInstagram,confidence:"CONFIRMED_FROM_MAPS_WEBSITE",source:"GOOGLE_MAPS"};
+    } else {
+      instagram=place.website?await instagramFromWebsite(place.website):null;
+      if(!instagram) instagram=await instagramFromWebSearch(page,place,input,session).catch(()=>null);
+    }
+  }
   return {
     cnpj:"",
     cnpjFormatted:"Não disponível nesta fonte",
@@ -250,7 +330,8 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     }
 
     const results:CompanyLead[]=[];
-    for(const place of places) results.push(await toLead(place,input));
+    const session:SearchSession={webSearchBlocked:false};
+    for(const place of places) results.push(await toLead(place,input,page,session));
     const value:SearchResponse={
       input:{...input,quantity:requested},
       requested,
