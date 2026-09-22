@@ -24,6 +24,7 @@ import {
   FilterIcon,
   GlobeIcon,
   HistoryIcon,
+  InstagramIcon,
   KanbanIcon,
   MapPinIcon,
   MicIcon,
@@ -855,6 +856,8 @@ function ResultsView({results,dataset,onDetail,onNewSearch,onAddToCrm,crmImporti
 function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const digits=(item.phone||"").replace(/\D/g,"");
   const fromMaps=!item.cnpj;
+  const instagramUrl=item.social?.instagram?.url||null;
+  const websiteUrl=item.website&&!/^(https?:\/\/)?(www\.)?instagram\.com\//i.test(item.website)?item.website:null;
   return (
     <article className="resultCard">
       <div className="resultTop">
@@ -870,13 +873,14 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
         </>}
         <Info label="Telefone" value={item.phone || "Não informado"}/>
         <Info label="E-mail" value={item.email || "Não informado"}/>
-        <Info label="Site" value={item.website || "Não encontrado"}/>
-        <Info label="Instagram" value={item.social?.instagram?.url || "Não confirmado"}/>
+        <Info label="Site" value={websiteUrl || "Não encontrado"}/>
+        <Info label="Instagram" value={instagramUrl || "Não confirmado"}/>
       </div>
       <div className="cardActions">
         {item.mapsUrl && <a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
         {digits && <a href={`https://wa.me/55${digits}`} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp</a>}
-        {item.website && <a href={item.website} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
+        {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
+        {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon/>Instagram</a>}
         {onDetail&&<button className="primarySmall" onClick={onDetail}>Ver detalhes <ArrowRightIcon/></button>}
       </div>
     </article>

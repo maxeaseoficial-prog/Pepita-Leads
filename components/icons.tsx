@@ -22,6 +22,7 @@ export const FileIcon=(p:Props)=><Base {...p}><path d="M6 2h9l5 5v15H6z"/><path 
 export const MapPinIcon=(p:Props)=><Base {...p}><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></Base>;
 export const PhoneIcon=(p:Props)=><Base {...p}><path d="M22 16.9v3a2 2 0 0 1-2.2 2A20 20 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L9 11a16 16 0 0 0 4 4l1.3-1.3a2 2 0 0 1 2.1-.5c1 .3 1.9.6 2.9.7a2 2 0 0 1 1.7 2Z"/></Base>;
 export const GlobeIcon=(p:Props)=><Base {...p}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></Base>;
+export const InstagramIcon=(p:Props)=><Base {...p}><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none"/></Base>;
 export const CloseIcon=(p:Props)=><Base {...p}><path d="m6 6 12 12M18 6 6 18"/></Base>;
 export const ArrowRightIcon=(p:Props)=><Base {...p}><path d="M5 12h14m-5-5 5 5-5 5"/></Base>;
 export const SparkIcon=(p:Props)=><Base {...p}><path d="m12 3 1.2 4.3L17.5 9l-4.3 1.7L12 15l-1.2-4.3L6.5 9l4.3-1.7Z"/><path d="m19 14 .7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7Z"/></Base>;
