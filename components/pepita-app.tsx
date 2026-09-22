@@ -153,7 +153,7 @@ async function fetchJson<T>(url:string, init?:RequestInit):Promise<T> {
 }
 
 export function PepitaApp() {
-  const [view,setView]=useState<View>("chat");
+  const [view,setView]=useState<View|null>(null);
   const [health,setHealth]=useState<HealthResponse|null>(null);
   const [prefs,setPrefs]=useState<Prefs>(DEFAULT_PREFS);
   const [messages,setMessages]=useState<ChatMessage[]>([]);
@@ -649,7 +649,7 @@ export function PepitaApp() {
         </nav>
       </aside>
 
-      <section className="mainArea">
+      <section className="mainArea" aria-busy={view===null}>
         <header className="topbar">
           <div className="brand">
             <img src="/pepita/icon-64.png" alt=""/>
@@ -663,6 +663,8 @@ export function PepitaApp() {
             {status}
           </button>
         </header>
+
+        {view===null&&<span className="srOnly" role="status">Abrindo a área selecionada…</span>}
 
         {view==="chat" && (
           <section className="chatView">
