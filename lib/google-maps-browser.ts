@@ -108,20 +108,41 @@ async function instagramFromWebSearch(
 
   if(session.alternateWebBlocked) return null;
   try {
-    const response=await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,{
+    const searchUrl=`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    let response=await fetch(searchUrl,{
       headers:{"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"},
       signal:AbortSignal.timeout(10_000)
     });
-    const html=await response.text();
-    if(!response.ok||/anomaly-modal|challenge-form/i.test(html)) {
-      session.alternateWebBlocked=true;
-      return null;
+    let document=await response.text();
+    if(!response.ok||/anomaly-modal|challenge-form/i.test(document)) {
+      response=await fetch(`https://r.jina.ai/${searchUrl}`,{
+        headers:{"User-Agent":"PepitaBusinessEnrichment/1.0"},
+        signal:AbortSignal.timeout(15_000)
+      });
+      document=await response.text();
+      if(!response.ok||/requiring captcha|anomaly-modal|challenge-form/i.test(document)) {
+        session.alternateWebBlocked=true;
+        return null;
+      }
     }
 
-    const anchors=[...html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
-    let best:{url:string;score:number}|null=null;
+    const candidates:{href:string;text:string}[]=[];
+    const anchors=[...document.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
     for(const match of anchors) {
-      const decoded=match[1]
+      candidates.push({href:match[1],text:match[2].replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ")});
+    }
+    for(const match of document.matchAll(/uddg=([^&\s)"']+)/gi)) {
+      const at=match.index||0;
+      candidates.push({href:match[1],text:document.slice(Math.max(0,at-250),at+500)});
+    }
+    for(const match of document.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/[A-Za-z0-9._%-]+/gi)) {
+      const at=match.index||0;
+      candidates.push({href:match[0],text:document.slice(Math.max(0,at-250),at+500)});
+    }
+
+    let best:{url:string;score:number}|null=null;
+    for(const candidate of candidates) {
+      const decoded=candidate.href
         .replace(/&amp;/g,"&")
         .replace(/^\/l\/?\?kh=-1&amp;uddg=/,"");
       let href=decoded;
@@ -132,7 +153,7 @@ async function instagramFromWebSearch(
       } catch {}
       const url=instagramProfileUrl(href);
       if(!url) continue;
-      const text=match[2].replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ");
+      const text=candidate.text.replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ");
       const cityBonus=normalize(text).includes(normalize(input.city))?.15:0;
       const score=nameMatchScore(place.name,text)+cityBonus;
       if(!best||score>best.score) best={url,score};
