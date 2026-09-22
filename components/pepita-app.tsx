@@ -758,10 +758,10 @@ export function PepitaApp() {
                   <p className="lead">Diga quem você quer encontrar. Eu transformo seu pedido em filtros, consulto a base e organizo os resultados.</p>
 
                   <div className="quickGrid">
-                    <QuickCard icon={<SearchIcon/>} title="Encontrar empresas" text="Busque por nicho, localização, porte e outros filtros." onClick={()=>setStructuredOpen(true)}/>
-                    <QuickCard icon={<FileIcon/>} title="CNPJ e sócios" text="Abra o dossiê cadastral das empresas encontradas." onClick={()=>handleChat("Buscar CNPJ e sócios")}/>
-                    <QuickCard icon={<GlobeIcon/>} title="Site e Instagram" text={providerSite?"Enriquecimento habilitado no servidor.":"Ative Google Places no servidor para enriquecer."} onClick={()=>setStructuredOpen(true)}/>
-                    <QuickCard icon={<SparkIcon/>} title="Analisar oportunidades" text="Entenda por que uma empresa recebeu determinado potencial." onClick={()=>handleChat("Analisar oportunidades")}/>
+                    <QuickCard icon={<SearchIcon/>} title="Encontrar empresas" text="Busque por nicho, localização, porte e outros filtros."/>
+                    <QuickCard icon={<FileIcon/>} title="CNPJ e sócios" text="Abra o dossiê cadastral das empresas encontradas."/>
+                    <QuickCard icon={<GlobeIcon/>} title="Site e Instagram" text={providerSite?"Enriquecimento habilitado no servidor.":"Ative Google Places no servidor para enriquecer."}/>
+                    <QuickCard icon={<SparkIcon/>} title="Analisar oportunidades" text="Entenda por que uma empresa recebeu determinado potencial."/>
                   </div>
 
                   <div className="promptExamples">
@@ -904,8 +904,8 @@ function NavButton({active,onClick,icon,label,disabled=false}:{active:boolean;on
   return <button className={`navButton ${active?"active":""}`} onClick={onClick} disabled={disabled} title={disabled?"Em breve":undefined}>{icon}<span>{label}</span>{disabled&&<small>Em breve</small>}</button>;
 }
 
-function QuickCard({icon,title,text,onClick}:{icon:ReactNode;title:string;text:string;onClick:()=>void}) {
-  return <button className="quickCard" onClick={onClick}><div className="quickIcon">{icon}</div><div><strong>{title}</strong><small>{text}</small></div><ArrowRightIcon className="quickArrow"/></button>;
+function QuickCard({icon,title,text}:{icon:ReactNode;title:string;text:string}) {
+  return <div className="quickCard"><div className="quickIcon">{icon}</div><div><strong>{title}</strong><small>{text}</small></div></div>;
 }
 
 function WorkingCard() {
