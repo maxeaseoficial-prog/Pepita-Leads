@@ -684,7 +684,7 @@ export function PepitaApp() {
                       <p>{message.text}</p>
                       {message.kind==="quantity" && (
                         <div className="quantityButtons">
-                          {[10,20,30,50,60].map(q=><button key={q} onClick={()=>chooseQuantity(q)}>{q}</button>)}
+                          {[10,20].map(q=><button key={q} onClick={()=>chooseQuantity(q)}>{q}</button>)}
                         </div>
                       )}
                       {message.kind==="result" && (
