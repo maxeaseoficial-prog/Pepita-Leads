@@ -105,39 +105,40 @@ type HistoryItem = {
 };
 
 type Prefs = {
-  defaultQuantity:number;
-  activeOnly:boolean;
-  hasPhone:boolean;
-  hasEmail:boolean;
   defaultExport:"csv"|"xlsx";
 };
 
 const DEFAULT_PREFS:Prefs = {
-  defaultQuantity:10,
-  activeOnly:true,
-  hasPhone:false,
-  hasEmail:false,
   defaultExport:"xlsx"
 };
 
 const VOICE_BAR_COUNT=32;
 
-function defaultSearch(prefs:Prefs):SearchPayload {
+function defaultSearch():SearchPayload {
   return {
     niche:"",
     city:"",
     state:"",
-    quantity:prefs.defaultQuantity,
+    quantity:10,
     companySizes:[],
     minCapital:0,
     minAgeYears:0,
     minPotential:"ALL",
-    activeOnly:prefs.activeOnly,
-    hasPhone:prefs.hasPhone,
-    hasEmail:prefs.hasEmail,
+    activeOnly:true,
+    hasPhone:true,
+    hasEmail:true,
     matrixOnly:false,
     onlyWithoutSite:false,
     findInstagram:true
+  };
+}
+
+function enforceRequiredLeadFilters(payload:SearchPayload):SearchPayload {
+  return {
+    ...payload,
+    activeOnly:true,
+    hasPhone:true,
+    hasEmail:true
   };
 }
 
@@ -171,7 +172,7 @@ export function PepitaApp() {
   const [history,setHistory]=useState<HistoryItem[]>([]);
   const [working,setWorking]=useState(false);
   const [structuredOpen,setStructuredOpen]=useState(false);
-  const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch(DEFAULT_PREFS));
+  const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch());
   const [detail,setDetail]=useState<CompanyDetail|null>(null);
   const [detailLoading,setDetailLoading]=useState(false);
   const [exportFormat,setExportFormat]=useState<"csv"|"xlsx">("xlsx");
@@ -289,10 +290,13 @@ export function PepitaApp() {
     const storedPrefs=localStorage.getItem(`pepita.prefs:${scope}`)||localStorage.getItem("pepita.prefs");
     let nextPrefs=DEFAULT_PREFS;
     if(storedPrefs) {
-      try { nextPrefs={...DEFAULT_PREFS,...JSON.parse(storedPrefs)}; } catch {}
+      try {
+        const parsed=JSON.parse(storedPrefs) as Partial<Prefs>;
+        nextPrefs={defaultExport:parsed.defaultExport==="csv"?"csv":"xlsx"};
+      } catch {}
     }
     setPrefs(nextPrefs);
-    setStructured(defaultSearch(nextPrefs));
+    setStructured(defaultSearch());
     setExportFormat(nextPrefs.defaultExport);
     const storedHistory=localStorage.getItem(`pepita.history:${scope}`)||localStorage.getItem("pepita.history");
     if(storedHistory) {
@@ -528,17 +532,18 @@ export function PepitaApp() {
   }
 
   async function executeSearch(payload:SearchPayload,query:string) {
+    const enforcedPayload=enforceRequiredLeadFilters(payload);
     setWorking(true);
-    setCurrentSearch(payload);
+    setCurrentSearch(enforcedPayload);
     try {
       const result=await fetchJson<SearchResponse>("/api/search",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(payload)
+        body:JSON.stringify(enforcedPayload)
       });
       setResults(result.results);
       setDataset(result.dataset);
-      saveHistory(query,payload,result);
+      saveHistory(query,enforcedPayload,result);
 
       if(result.returned===0) {
         addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
@@ -568,7 +573,7 @@ export function PepitaApp() {
     const command=parseChatCommand(
       text,
       currentSearch,
-      defaultSearch(prefs),
+      defaultSearch(),
       pendingSearch
     );
 
@@ -1122,13 +1127,6 @@ function SettingsView({
     <div className="viewScroll">
       <div className="sectionHeader"><div><p className="eyebrow">CONFIGURAÇÕES</p><h2>Preferências</h2><p>Defina como a Pepita deve trabalhar por padrão.</p></div><img className="sectionPepita" src="/pepita/documents.png" alt=""/></div>
       <div className="settingsGrid">
-        <div className="panelCard">
-          <h3>Busca padrão</h3>
-          <label>Quantidade<select value={prefs.defaultQuantity} onChange={e=>setPrefs({...prefs,defaultQuantity:Number(e.target.value)})}>{[10,20,30,40,50,60].map(x=><option key={x}>{x}</option>)}</select></label>
-          <label className="checkLine"><input type="checkbox" checked={prefs.activeOnly} onChange={e=>setPrefs({...prefs,activeOnly:e.target.checked})}/>Somente empresas ativas</label>
-          <label className="checkLine"><input type="checkbox" checked={prefs.hasPhone} onChange={e=>setPrefs({...prefs,hasPhone:e.target.checked})}/>Exigir telefone</label>
-          <label className="checkLine"><input type="checkbox" checked={prefs.hasEmail} onChange={e=>setPrefs({...prefs,hasEmail:e.target.checked})}/>Exigir e-mail</label>
-        </div>
         <div className="panelCard accountPanel">
           <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
           {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
@@ -1287,10 +1285,7 @@ function StructuredModal({value,setValue,siteAvailable,onClose,onRun}:{
         <fieldset><legend>Porte</legend><div className="checks3">
           {([["MICRO","Microempresa"],["SMALL","Pequeno Porte"],["OTHER","Demais"]] as const).map(([key,label])=><label key={key}><input type="checkbox" checked={value.companySizes.includes(key)} onChange={e=>setValue({...value,companySizes:e.target.checked?[...value.companySizes,key]:value.companySizes.filter(x=>x!==key)})}/>{label}</label>)}
         </div></fieldset>
-        <fieldset><legend>Filtros</legend><div className="checks2">
-          <label><input type="checkbox" checked={value.activeOnly} onChange={e=>setValue({...value,activeOnly:e.target.checked})}/>Somente ativas</label>
-          <label><input type="checkbox" checked={value.hasPhone} onChange={e=>setValue({...value,hasPhone:e.target.checked})}/>Com telefone</label>
-          <label><input type="checkbox" checked={value.hasEmail} onChange={e=>setValue({...value,hasEmail:e.target.checked})}/>Com e-mail</label>
+        <fieldset><legend>Filtros adicionais</legend><div className="checks2">
           <label><input type="checkbox" checked={value.matrixOnly} onChange={e=>setValue({...value,matrixOnly:e.target.checked})}/>Somente matriz</label>
           <label className={!siteAvailable?"disabled":""}><input disabled={!siteAvailable} type="checkbox" checked={value.onlyWithoutSite} onChange={e=>setValue({...value,onlyWithoutSite:e.target.checked})}/>Somente sem site</label>
           <label className={!siteAvailable?"disabled":""}><input disabled={!siteAvailable} type="checkbox" checked={value.findInstagram} onChange={e=>setValue({...value,findInstagram:e.target.checked})}/>Buscar Instagram</label>
