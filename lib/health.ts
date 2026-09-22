@@ -1,8 +1,8 @@
-import { getSql } from "./db";
+import { getDatabaseUrl, getSql } from "./db";
 import type { HealthResponse } from "./types";
 
 export async function getHealth(): Promise<HealthResponse> {
-  if (!process.env.DATABASE_URL) {
+  if (!getDatabaseUrl()) {
     return {
       ok: false,
       ready: false,

@@ -32,7 +32,7 @@ Stack:
 
 O projeto **não possui modo DEMO**.
 
-Sem `DATABASE_URL` e sem a base RFB importada, o app mostra que a infraestrutura ainda não está pronta. Ele não inventa resultados.
+Sem `SUPABASE_DATABASE_URL`/`DATABASE_URL` e sem a base RFB importada, o app mostra que a infraestrutura ainda não está pronta. Ele não inventa resultados.
 
 ## Rodar localmente
 
@@ -42,7 +42,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Você precisa de um `DATABASE_URL` PostgreSQL real.
+Você precisa de um `SUPABASE_DATABASE_URL` ou `DATABASE_URL` PostgreSQL real.
 
 ## Deploy na Vercel
 
@@ -52,8 +52,8 @@ Resumo:
 
 1. crie o repositório `Pepita` no GitHub;
 2. importe o repositório na Vercel;
-3. adicione Neon Postgres pelo Vercel Marketplace;
-4. confirme `DATABASE_URL`;
+3. crie o projeto no Supabase e use a conexão pelo Transaction Pooler;
+4. confirme `SUPABASE_DATABASE_URL` (ou `DATABASE_URL`);
 5. aplique `db/schema.sql`;
 6. importe a RFB com `scripts/import-rfb.py`;
 7. redeploy.

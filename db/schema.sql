@@ -93,6 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_cnaes_normalized
 CREATE INDEX IF NOT EXISTS idx_est_state_municipality
   ON establishments(state, municipality_code);
 
+CREATE INDEX IF NOT EXISTS idx_est_municipality
+  ON establishments(municipality_code);
+
 CREATE INDEX IF NOT EXISTS idx_est_cnae_status
   ON establishments(main_cnae, status_code);
 
@@ -107,3 +110,27 @@ CREATE INDEX IF NOT EXISTS idx_companies_size_capital
 
 CREATE INDEX IF NOT EXISTS idx_partners_cnpj_base
   ON partners(cnpj_base);
+
+-- A Pepita acessa estes dados apenas pelo backend usando DATABASE_URL.
+-- Bloqueie o acesso anônimo pelas APIs públicas do Supabase.
+ALTER TABLE metadata ENABLE ROW LEVEL SECURITY;
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE municipalities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cnaes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE qualifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE establishments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE partners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE simple_tax ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE
+  metadata,
+  companies,
+  municipalities,
+  cnaes,
+  qualifications,
+  establishments,
+  partners,
+  simple_tax
+FROM anon, authenticated;
+
+REVOKE ALL ON SEQUENCE partners_id_seq FROM anon, authenticated;
