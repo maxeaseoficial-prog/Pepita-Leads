@@ -157,6 +157,14 @@ svg{width:20px;height:20px}
 .primaryButton.wide,.ghostButton.wide{width:100%}
 .dataSource{max-width:1200px;margin:0 auto 12px;border:1px solid #34383d;background:#121417;border-radius:11px;padding:10px 12px;display:flex;justify-content:space-between;gap:12px}
 .dataSource span{color:var(--muted)}
+.crmInvite{max-width:1200px;margin:0 auto 14px;border:1px solid #5b4c0c;background:#171609;border-radius:14px;padding:13px 14px;display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:13px}
+.crmInvitePepita{width:48px;height:48px;border-radius:11px;overflow:hidden;background:#0e1012}
+.crmInvitePepita img{width:100%;height:100%;object-fit:cover}
+.crmInvite strong{display:block;font-size:14px;margin-bottom:3px}
+.crmInvite p{margin:0;color:#b9b49e;font-size:12px;line-height:1.45}
+.crmInvite span{display:block;color:#ff9b9b;font-size:11px;margin-top:5px}
+.crmInvite .primaryButton{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.crmInvite .primaryButton svg{width:16px;height:16px}
 .resultsGrid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .resultCard{border:1px solid #34383d;background:linear-gradient(180deg,#15181b,#101215);border-radius:15px;padding:14px;display:grid;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.12)}
 .resultTop{display:flex;align-items:center;gap:10px}
@@ -240,6 +248,115 @@ svg{width:20px;height:20px}
 .partnerList{list-style:none;padding:0;margin:0;display:grid;gap:7px}
 .partnerList li{border-top:1px solid #272b30;padding-top:7px;display:grid;gap:2px}
 .partnerList span{font-size:11px;color:var(--muted)}
+
+/* Mini CRM */
+.crmView{height:100%;min-height:0;display:grid;grid-template-rows:auto auto minmax(0,1fr);overflow:hidden;background:linear-gradient(180deg,rgba(18,20,23,.55),transparent 170px)}
+.crmHeader{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:22px 26px 16px;border-bottom:1px solid var(--border-soft)}
+.crmHeader h1{margin:0 0 4px;font-size:26px;letter-spacing:-.025em}
+.crmHeader p{margin:0;color:var(--muted);font-size:13px}
+.crmHeaderActions{display:flex;align-items:center;gap:8px}
+.crmHeaderActions button{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.crmHeaderActions svg{width:16px;height:16px}
+.crmSaveState{font-size:11px;color:#7e858e;margin-right:4px}
+.crmSaveState:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#52d273;margin-right:6px}
+.crmSaveState.saving:before{background:var(--gold);animation:crmPulse .8s ease-in-out infinite alternate}
+@keyframes crmPulse{to{opacity:.35}}
+.crmError{margin:10px 26px 0;border:1px solid #703838;background:#2b1416;color:#ffb3b3;border-radius:10px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;font-size:12px}
+.crmError button{border:0;background:transparent;color:inherit;display:grid;place-items:center}
+.crmError svg{width:16px;height:16px}
+.crmBoardScroller{min-height:0;overflow:auto;padding:16px 26px 24px;scrollbar-color:#454039 transparent;overscroll-behavior:contain}
+.crmColumns{min-height:100%;display:flex;align-items:flex-start;gap:12px;width:max-content}
+.crmColumn{width:286px;max-height:100%;flex:0 0 286px;border:1px solid #2b2f34;background:#0e1012;border-radius:14px;display:grid;grid-template-rows:48px minmax(110px,1fr);overflow:hidden;transition:border-color .18s ease,opacity .18s ease}
+.crmColumn.dragging{opacity:.55;border-color:var(--gold)}
+.crmColumn>header{display:grid;grid-template-columns:30px minmax(0,1fr) 26px 30px;align-items:center;gap:4px;padding:8px 9px;border-bottom:1px solid #272b30;background:#131519}
+.crmColumn h2{font-size:13px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crmColumn>header>span{display:grid;place-items:center;min-width:22px;height:22px;border-radius:999px;background:#24282d;color:#aeb3ba;font-size:10px;font-variant-numeric:tabular-nums}
+.dragHandle,.columnAdd{width:30px;height:30px;border:0;background:transparent;color:#777e87;border-radius:8px;display:grid;place-items:center;touch-action:none}
+.dragHandle:hover,.columnAdd:hover{background:#25292e;color:#f4f4f2}
+.dragHandle:focus-visible,.columnAdd:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.dragHandle svg,.columnAdd svg{width:17px;height:17px}
+.crmCardList{min-height:110px;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:8px;scrollbar-color:#34383d transparent}
+.crmCard{border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;box-shadow:0 9px 22px rgba(0,0,0,.18);transition:border-color .18s ease,box-shadow .18s ease,opacity .18s ease}
+.crmCard:hover{border-color:#5f5319;box-shadow:0 12px 28px rgba(0,0,0,.25)}
+.crmCard.dragging{opacity:.28}
+.crmCardOverlay{width:270px;transform:rotate(1.5deg);border-color:var(--gold);box-shadow:0 24px 50px rgba(0,0,0,.45)}
+.crmCardTop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.leadOrigin{font-size:9px;font-weight:750;border-radius:999px;padding:3px 6px;border:1px solid #3b4046;color:#aeb4bc}
+.leadOrigin.search{border-color:#574a0c;background:#211d08;color:#f3d55e}
+.crmCardTop .dragHandle{margin:-6px -6px -4px 0;width:28px;height:28px}
+.crmCardMain{width:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;display:grid;gap:5px}
+.crmCardMain>strong{font-size:13px;line-height:1.3}
+.crmCardMain>small{color:#858b93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crmCardPlace{display:flex;align-items:center;gap:5px;color:#9aa0a8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crmCardPlace svg{width:13px;height:13px;flex:0 0 auto;color:#ccad2d}
+.crmCardMeta{display:flex;justify-content:space-between;align-items:center;margin-top:3px;padding-top:7px;border-top:1px solid #292d32;color:#7f858e;font-size:10px}
+.crmCardMeta>span{display:flex;align-items:center;gap:4px}
+.crmCardMeta svg{width:12px;height:12px}
+.crmColumnEmpty{min-height:92px;border:1px dashed #343940;border-radius:10px;background:transparent;color:#777e87;display:grid;place-items:center;align-content:center;gap:7px;font-size:11px}
+.crmColumnEmpty:hover{border-color:#675a14;color:var(--gold);background:#171507}
+.crmColumnEmpty svg{width:17px;height:17px}
+.crmAddColumnSlot{width:286px;flex:0 0 286px}
+.crmAddColumnSlot>button{width:100%;border:1px dashed #3a3f45;background:#101215;color:#aeb3ba;border-radius:12px;padding:13px;display:flex;align-items:center;justify-content:center;gap:7px}
+.crmAddColumnSlot>button:hover{border-color:#665811;color:var(--gold)}
+.crmAddColumnSlot>button svg{width:16px;height:16px}
+.crmAddColumnSlot form{border:1px solid #54480e;background:#141307;border-radius:12px;padding:12px;display:grid;gap:8px}
+.crmAddColumnSlot label{font-size:11px;color:#b7bac0}
+.crmAddColumnSlot input{border:1px solid #454038;background:#0d0f11;color:white;border-radius:8px;padding:9px}
+.crmAddColumnSlot form>div{display:flex;gap:7px;justify-content:flex-end}
+.crmDrawerBackdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.68);display:flex;justify-content:flex-end;backdrop-filter:blur(3px)}
+.crmDrawer{width:min(500px,100%);height:100%;overflow:auto;background:#111316;border-left:1px solid #3a3f45;box-shadow:-24px 0 70px rgba(0,0,0,.38);padding:18px;animation:drawerIn .22s cubic-bezier(.16,1,.3,1)}
+@keyframes drawerIn{from{transform:translateX(35px);opacity:.65}}
+.crmDrawerHeader{position:relative;display:grid;grid-template-columns:48px minmax(0,1fr) 38px;align-items:center;gap:11px;padding-bottom:15px;border-bottom:1px solid #2a2e33}
+.crmDrawerHeader .companyMark{width:48px;height:48px}
+.crmDrawerHeader h2{margin:0 0 3px;font-size:18px;line-height:1.25}
+.crmDrawerHeader p{margin:0;color:var(--muted);font-size:11px}
+.crmDrawerHeader .closeButton{position:static}
+.crmTabs{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:5px;margin:14px 0}
+.crmTabs button{min-width:0;border:1px solid transparent;border-radius:9px;background:transparent;color:#959ba3;padding:9px 6px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;white-space:nowrap}
+.crmTabs button[aria-selected=true]{border-color:#54470c;background:#211d08;color:var(--gold)}
+.crmTabs svg{width:15px;height:15px}
+.crmTabs span{min-width:17px;height:17px;border-radius:999px;display:grid;place-items:center;background:#2d3035;font-size:9px}
+.crmForm{display:grid;gap:13px}
+.crmFields{display:grid;grid-template-columns:minmax(0,1fr) 90px;gap:10px}
+.crmFields label,.crmForm>label,.crmNotes label,.crmComments label{display:grid;gap:6px;color:#b8bdc4;font-size:11px}
+.crmFields label>span{display:flex;align-items:center;gap:5px}
+.crmFields label svg{width:14px;height:14px;color:#bda62b}
+.crmFields .span2{grid-column:1/-1}
+.crmFields input,.crmForm select,.crmNotes textarea,.crmComments textarea{width:100%;border:1px solid #383d43;background:#191c20;color:#f5f3ee;border-radius:9px;padding:10px;outline:0}
+.crmFields input:focus,.crmForm select:focus,.crmNotes textarea:focus,.crmComments textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(246,197,21,.09)}
+.crmNotes{display:grid;gap:9px}
+.crmNotes textarea{min-height:260px;resize:vertical;line-height:1.55}
+.crmNotes p{margin:0;color:#7e848d;font-size:11px}
+.crmNotes .primaryButton{justify-self:end}
+.crmComments{display:grid;gap:18px}
+.crmComments form{display:grid;gap:8px}
+.crmComments textarea{min-height:94px;resize:vertical;line-height:1.45}
+.crmComments form .primaryButton{justify-self:end}
+.commentTimeline{display:grid;gap:0;border-top:1px solid #2b2f34}
+.commentTimeline article{position:relative;padding:14px 0 14px 20px;border-bottom:1px solid #292d32}
+.commentTimeline article:before{content:"";position:absolute;left:1px;top:18px;width:7px;height:7px;border-radius:50%;background:var(--gold)}
+.commentTimeline article:after{content:"";position:absolute;left:4px;top:25px;bottom:-5px;width:1px;background:#3b3f44}
+.commentTimeline article:last-child:after{display:none}
+.commentTimeline article span{color:#7e858d;font-size:10px;font-variant-numeric:tabular-nums}
+.commentTimeline article p{margin:5px 0 0;white-space:pre-wrap;line-height:1.48;font-size:12px}
+.commentsEmpty{padding:30px 14px;text-align:center;color:#868c94}
+.commentsEmpty svg{width:30px;height:30px;color:#a88e1e;margin-bottom:9px}
+.commentsEmpty strong{display:block;color:#d9dbde;font-size:13px}
+.commentsEmpty p{margin:5px auto 0;max-width:33ch;font-size:11px;line-height:1.45}
+.crmDangerZone{margin-top:26px;padding-top:14px;border-top:1px solid #292d32;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.crmDangerZone p{width:100%;margin:0 0 2px;color:#d2b4b4;font-size:12px}
+.dangerLink{border:0;background:transparent;color:#c97b7b;padding:6px 0;display:flex;align-items:center;gap:6px;font-size:11px}
+.dangerLink svg{width:14px;height:14px}
+.dangerButton{border:1px solid #7d3434;background:#451d20;color:#ffc0c0;border-radius:9px;padding:9px 11px}
+.crmState{height:100%;display:grid;place-items:center;align-content:center;text-align:center;padding:24px}
+.crmState img{width:96px;height:96px;border-radius:16px}
+.crmState h2{margin:13px 0 4px}
+.crmState p{color:var(--muted);max-width:42ch}
+.skeletonColumns{padding:16px 26px;overflow:hidden}
+.skeletonColumns .crmColumn>header,.crmSkeletonCard{background:linear-gradient(90deg,#15181b,#202328,#15181b);background-size:200% 100%;animation:crmSkeleton 1.4s linear infinite}
+.crmSkeletonCard{height:124px;margin:10px 10px 0;border-radius:11px}
+.crmSkeletonCard.short{height:88px}
+@keyframes crmSkeleton{to{background-position:-200% 0}}
 @media(max-width:980px){
   .quickGrid{grid-template-columns:1fr 1fr}
   .resultsGrid{grid-template-columns:1fr}
@@ -273,6 +390,20 @@ svg{width:20px;height:20px}
   .formGrid .span2{grid-column:auto}
   .modalBackdrop{padding:8px;align-items:flex-end}
   .modalCard{max-height:94vh;border-radius:18px 18px 8px 8px}
+  .crmHeader{padding:14px;align-items:flex-start}
+  .crmHeader h1{font-size:22px}
+  .crmHeaderActions{display:grid;grid-template-columns:1fr 1fr}
+  .crmSaveState{grid-column:1/-1;text-align:right;margin:0}
+  .crmHeaderActions button{justify-content:center;padding:9px 10px;font-size:11px}
+  .crmBoardScroller{padding:12px 14px 18px;scroll-snap-type:x proximity}
+  .crmColumn{width:82vw;flex-basis:82vw;scroll-snap-align:start;max-height:100%}
+  .crmAddColumnSlot{width:82vw;flex-basis:82vw}
+  .crmDrawerBackdrop{align-items:flex-end}
+  .crmDrawer{width:100%;height:min(92dvh,760px);border-left:0;border-top:1px solid #3a3f45;border-radius:18px 18px 0 0;padding-bottom:28px;animation:drawerUp .22s cubic-bezier(.16,1,.3,1)}
+  @keyframes drawerUp{from{transform:translateY(35px);opacity:.65}}
+  .crmInvite{grid-template-columns:42px minmax(0,1fr);margin:0 auto 12px}
+  .crmInvitePepita{width:42px;height:42px}
+  .crmInvite .primaryButton{grid-column:1/-1;justify-content:center}
 }
 @media(max-width:420px){
   .brandTitle{font-size:16px}
@@ -284,4 +415,11 @@ svg{width:20px;height:20px}
   .voiceRecorder{grid-template-columns:minmax(80px,1fr) 42px 42px;gap:8px}
   .voiceMeta{display:none}
   .voiceWave{gap:2px}
+  .crmHeader{display:grid}
+  .crmHeaderActions{width:100%}
+  .crmFields{grid-template-columns:1fr 72px}
+  .crmTabs button{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .crmDrawer,.crmSaveState.saving:before,.skeletonColumns .crmColumn>header,.crmSkeletonCard{animation:none}
 }

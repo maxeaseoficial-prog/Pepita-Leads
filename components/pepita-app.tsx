@@ -12,6 +12,7 @@ import type {
 import { parseChatCommand } from "@/lib/chat-parser";
 import { downloadFile, EXPORT_COLUMNS } from "@/lib/export";
 import { money } from "@/lib/format";
+import { CrmBoard } from "./crm-board";
 import {
   ArrowUpIcon,
   ArrowRightIcon,
@@ -23,6 +24,7 @@ import {
   FilterIcon,
   GlobeIcon,
   HistoryIcon,
+  KanbanIcon,
   MapPinIcon,
   MicIcon,
   PhoneIcon,
@@ -34,7 +36,7 @@ import {
   StopIcon
 } from "./icons";
 
-type View = "chat"|"results"|"export"|"history"|"settings";
+type View = "chat"|"results"|"crm"|"export"|"history"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 
 type VoiceRecognitionResult = {
@@ -165,6 +167,9 @@ export function PepitaApp() {
   const [voiceSeconds,setVoiceSeconds]=useState(0);
   const [voiceError,setVoiceError]=useState("");
   const [voiceInterim,setVoiceInterim]=useState("");
+  const [crmRefreshKey,setCrmRefreshKey]=useState(0);
+  const [crmImporting,setCrmImporting]=useState(false);
+  const [crmImportMessage,setCrmImportMessage]=useState("");
   const scrollRef=useRef<HTMLDivElement>(null);
   const recognitionRef=useRef<VoiceRecognition|null>(null);
   const voiceFinalRef=useRef("");
@@ -588,6 +593,21 @@ export function PepitaApp() {
     setView("results");
   }
 
+  async function addResultsToCrm() {
+    if(!results.length||crmImporting) return;
+    setCrmImporting(true);setCrmImportMessage("");
+    try {
+      await fetchJson("/api/crm",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"import-leads",leads:results})
+      });
+      setCrmRefreshKey(value=>value+1);
+      setView("crm");
+    } catch(error) {
+      setCrmImportMessage(error instanceof Error?error.message:"Não foi possível adicionar os leads ao CRM.");
+    } finally { setCrmImporting(false); }
+  }
+
   const status=health?.ready?"ONLINE":"CONFIGURAR";
   const providerSite=Boolean(health?.providers.googlePlaces);
 
@@ -600,6 +620,7 @@ export function PepitaApp() {
         <nav className="nav">
           <NavButton active={view==="chat"} onClick={()=>setView("chat")} icon={<ChatIcon/>} label="Chat"/>
           <NavButton active={view==="results"} onClick={()=>setView("results")} icon={<ResultsIcon/>} label="Resultados"/>
+          <NavButton active={view==="crm"} onClick={()=>setView("crm")} icon={<KanbanIcon/>} label="CRM"/>
           <NavButton active={view==="export"} onClick={()=>setView("export")} icon={<ExportIcon/>} label="Exportar"/>
           <NavButton active={view==="history"} onClick={()=>setView("history")} icon={<HistoryIcon/>} label="Histórico"/>
           <div className="navSpacer"/>
@@ -717,8 +738,13 @@ export function PepitaApp() {
             dataset={dataset}
             onDetail={openDetail}
             onNewSearch={()=>{setView("chat");setStructuredOpen(true);}}
+            onAddToCrm={()=>void addResultsToCrm()}
+            crmImporting={crmImporting}
+            crmImportMessage={crmImportMessage}
           />
         )}
+
+        {view==="crm" && <CrmBoard refreshKey={crmRefreshKey}/>}
 
         {view==="export" && (
           <ExportView
@@ -799,7 +825,7 @@ function WorkingCard() {
   );
 }
 
-function ResultsView({results,dataset,onDetail,onNewSearch}:{results:CompanyLead[];dataset:SearchResponse["dataset"]|null;onDetail:(cnpj:string)=>void;onNewSearch:()=>void}) {
+function ResultsView({results,dataset,onDetail,onNewSearch,onAddToCrm,crmImporting,crmImportMessage}:{results:CompanyLead[];dataset:SearchResponse["dataset"]|null;onDetail:(cnpj:string)=>void;onNewSearch:()=>void;onAddToCrm:()=>void;crmImporting:boolean;crmImportMessage:string}) {
   return (
     <div className="viewScroll">
       <div className="sectionHeader">
@@ -808,6 +834,8 @@ function ResultsView({results,dataset,onDetail,onNewSearch}:{results:CompanyLead
       </div>
 
       {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode}</strong></div>}
+
+      {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
 
       {!results.length ? (
         <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou abra a busca estruturada.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>

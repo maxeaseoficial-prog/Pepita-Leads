@@ -25,3 +25,11 @@ export const GlobeIcon=(p:Props)=><Base {...p}><circle cx="12" cy="12" r="9"/><p
 export const CloseIcon=(p:Props)=><Base {...p}><path d="m6 6 12 12M18 6 6 18"/></Base>;
 export const ArrowRightIcon=(p:Props)=><Base {...p}><path d="M5 12h14m-5-5 5 5-5 5"/></Base>;
 export const SparkIcon=(p:Props)=><Base {...p}><path d="m12 3 1.2 4.3L17.5 9l-4.3 1.7L12 15l-1.2-4.3L6.5 9l4.3-1.7Z"/><path d="m19 14 .7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7Z"/></Base>;
+export const KanbanIcon=(p:Props)=><Base {...p}><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/></Base>;
+export const PlusIcon=(p:Props)=><Base {...p}><path d="M12 5v14M5 12h14"/></Base>;
+export const DragIcon=(p:Props)=><Base {...p}><circle cx="9" cy="6" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r=".7" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r=".7" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r=".7" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r=".7" fill="currentColor" stroke="none"/></Base>;
+export const CommentIcon=(p:Props)=><Base {...p}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3v-7a4 4 0 0 1-1-2.6V7a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4z"/><path d="M8 9h8M8 13h5"/></Base>;
+export const NoteIcon=(p:Props)=><Base {...p}><path d="M5 3h14v18H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></Base>;
+export const MailIcon=(p:Props)=><Base {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></Base>;
+export const TrashIcon=(p:Props)=><Base {...p}><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/></Base>;
+export const EditIcon=(p:Props)=><Base {...p}><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10Z"/><path d="m14 7 3 3"/></Base>;

@@ -97,3 +97,45 @@ export type HealthResponse = {
     websiteEnrichment: boolean;
   };
 };
+
+export type CrmComment = {
+  id: string;
+  cardId: string;
+  body: string;
+  createdAt: string;
+};
+
+export type CrmCard = {
+  id: string;
+  columnId: string;
+  position: number;
+  companyCnpj: string | null;
+  companyName: string;
+  tradeName: string | null;
+  category: string | null;
+  city: string | null;
+  state: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  potentialLevel: PotentialLevel | null;
+  potentialScore: number | null;
+  source: "manual" | "search";
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  comments: CrmComment[];
+};
+
+export type CrmColumn = {
+  id: string;
+  name: string;
+  slug: string;
+  position: number;
+  cards: CrmCard[];
+};
+
+export type CrmBoard = {
+  columns: CrmColumn[];
+  totalCards: number;
+};
