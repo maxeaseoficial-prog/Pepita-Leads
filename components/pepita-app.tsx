@@ -43,8 +43,16 @@ import {
 type View = "chat"|"results"|"crm"|"plans"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
+type PlanId = "free"|"basic"|"unlimited";
 
 const VIEWS:View[]=["chat","results","crm","plans","settings"];
+const PLAN_NAMES:Record<PlanId,string>={free:"Grátis",basic:"Basic",unlimited:"Unlimited"};
+const PLAN_PRICES:Record<PlanId,string>={free:"R$ 0",basic:"R$ 29,90/mês",unlimited:"R$ 99,90/mês"};
+
+function currentPlanForUser(user:User|null):PlanId {
+  const value=String(user?.app_metadata?.pepita_plan||user?.app_metadata?.plan||"free").toLowerCase();
+  return value==="basic"||value==="unlimited"?value:"free";
+}
 
 function viewFromHash(hash:string):View {
   const value=hash.replace(/^#/,"").toLowerCase();
@@ -698,6 +706,7 @@ export function PepitaApp() {
   const sidebarHidden=sidebarCollapsed&&!isMobile;
   const accountAvatar=String(authUser?.user_metadata?.avatar_url||authUser?.user_metadata?.picture||"");
   const accountInitial=(authUser?.email?.trim().charAt(0)||"?").toUpperCase();
+  const currentPlan=currentPlanForUser(authUser);
 
   return (
     <div className={`appShell ${sidebarHidden?"sidebarCollapsed":""}`}>
@@ -858,10 +867,11 @@ export function PepitaApp() {
             <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>
           </div>
         )}
-        {view==="plans" && <PlansView/>}
+        {view==="plans" && <PlansView currentPlan={currentPlan}/>}
 
         {view==="settings" && (
           <SettingsView
+            currentPlan={currentPlan}
             prefs={prefs}
             setPrefs={updatePrefs}
             results={results}
@@ -1078,7 +1088,7 @@ function Info({label,value}:{label:string;value:string}) {
   return <div className="infoBox"><span>{label}</span><strong title={value}>{value}</strong></div>;
 }
 
-function PlansView() {
+function PlansView({currentPlan}:{currentPlan:PlanId}) {
   const commonFeatures=[
     "CRM completo",
     "CNPJ e dados PJ",
@@ -1091,7 +1101,9 @@ function PlansView() {
     "Exportação CSV/XLSX"
   ];
 
-  const plans=[
+  const plans:Array<{
+    id:PlanId;name:string;price:string;suffix:string;description:string;highlights:string[];popular:boolean;
+  }>=[
     {
       id:"free",
       name:"Grátis",
@@ -1099,7 +1111,6 @@ function PlansView() {
       suffix:"para sempre",
       description:"Experimente a Pepita e descubra o poder da prospecção inteligente.",
       highlights:["3 pesquisas","Até 20 empresas por pesquisa","Até 60 empresas"],
-      button:"Plano atual",
       popular:false
     },
     {
@@ -1109,7 +1120,6 @@ function PlansView() {
       suffix:"/mês",
       description:"Para quem está começando a prospectar todos os meses.",
       highlights:["30 pesquisas por mês","Até 20 empresas por pesquisa","Até 600 empresas por mês"],
-      button:"Assinar Basic",
       popular:true
     },
     {
@@ -1119,7 +1129,6 @@ function PlansView() {
       suffix:"/mês",
       description:"Para quem usa prospecção como parte da operação.",
       highlights:["Pesquisas ilimitadas*","Até 20 empresas por pesquisa","Resultados ilimitados*"],
-      button:"Assinar Unlimited",
       popular:false
     }
   ];
@@ -1142,49 +1151,53 @@ function PlansView() {
       </div>
 
       <section className="plansGrid">
-        {plans.map(plan=>(
-          <article className={`planCard ${plan.popular?"popular":""}`} key={plan.id}>
-            {plan.popular&&<div className="popularBadge">Mais popular</div>}
-            <div className="planCardHeader">
-              <h3>{plan.name}</h3>
-              <p>{plan.description}</p>
-            </div>
+        {plans.map(plan=>{
+          const isCurrent=plan.id===currentPlan;
+          return (
+            <article className={`planCard ${plan.popular?"popular":""} ${isCurrent?"currentPlan":""}`} key={plan.id}>
+              {plan.popular&&<div className="popularBadge">Mais popular</div>}
+              {isCurrent&&<div className="currentPlanBadge">Seu plano</div>}
+              <div className="planCardHeader">
+                <h3>{plan.name}</h3>
+                <p>{plan.description}</p>
+              </div>
 
-            <div className="planPrice">
-              <span>R$</span>
-              <strong>{plan.price}</strong>
-              <small>{plan.suffix}</small>
-            </div>
+              <div className="planPrice">
+                <span>R$</span>
+                <strong>{plan.price}</strong>
+                <small>{plan.suffix}</small>
+              </div>
 
-            <button
-              type="button"
-              className={`planButton ${plan.popular?"primary":""} ${plan.id==="free"?"current":""}`}
-              disabled
-              title={plan.id==="free"?"Plano atual":"Assinaturas serão liberadas com a integração da Stripe"}
-            >
-              {plan.button}
-            </button>
+              <button
+                type="button"
+                className={`planButton ${plan.popular&&!isCurrent?"primary":""} ${isCurrent?"current":""}`}
+                disabled
+                title={isCurrent?"Este é o seu plano atual":"Alterações de plano serão liberadas com a integração da Stripe"}
+              >
+                {isCurrent?"Plano atual":`Alterar para ${plan.name}`}
+              </button>
 
-            <div className="planDivider"/>
+              <div className="planDivider"/>
 
-            <ul className="planHighlights">
-              {plan.highlights.map(item=><li key={item}>{item}</li>)}
-            </ul>
-
-            <div className="planResources">
-              <span>Todos os recursos da Pepita</span>
-              <ul>
-                {commonFeatures.map(item=><li key={item}>{item}</li>)}
+              <ul className="planHighlights">
+                {plan.highlights.map(item=><li key={item}>{item}</li>)}
               </ul>
-            </div>
 
-            <div className="planFooterNote">
-              {plan.id==="free"&&<><strong>Comece sem custo</strong><span>Conheça a plataforma antes de decidir.</span></>}
-              {plan.id==="basic"&&<><strong>Mais resultados, mais oportunidades</strong><span>Ideal para profissionais e pequenas equipes.</span></>}
-              {plan.id==="unlimited"&&<><strong>Sem limites para crescer</strong><span>Para operações com prospecção recorrente.</span></>}
-            </div>
-          </article>
-        ))}
+              <div className="planResources">
+                <span>Todos os recursos da Pepita</span>
+                <ul>
+                  {commonFeatures.map(item=><li key={item}>{item}</li>)}
+                </ul>
+              </div>
+
+              <div className="planFooterNote">
+                {plan.id==="free"&&<><strong>Comece sem custo</strong><span>Conheça a plataforma antes de decidir.</span></>}
+                {plan.id==="basic"&&<><strong>Mais resultados, mais oportunidades</strong><span>Ideal para profissionais e pequenas equipes.</span></>}
+                {plan.id==="unlimited"&&<><strong>Sem limites para crescer</strong><span>Para operações com prospecção recorrente.</span></>}
+              </div>
+            </article>
+          );
+        })}
       </section>
 
       <p className="plansFairUse">*Uso ilimitado sujeito à política de uso justo e mecanismos de proteção contra abuso e automação excessiva.</p>
@@ -1193,8 +1206,9 @@ function PlansView() {
 }
 
 function SettingsView({
-  prefs,setPrefs,results,exportFormat,setExportFormat,exportColumns,setExportColumns,exportDone,onExport,user,authConfigured,onOpenAuth
+  currentPlan,prefs,setPrefs,results,exportFormat,setExportFormat,exportColumns,setExportColumns,exportDone,onExport,user,authConfigured,onOpenAuth
 }:{
+  currentPlan:PlanId;
   prefs:Prefs;setPrefs:(x:Prefs)=>void;
   results:CompanyLead[];
   exportFormat:"csv"|"xlsx";
@@ -1247,7 +1261,7 @@ function SettingsView({
       <div className="sectionHeader"><div><p className="eyebrow">CONFIGURAÇÕES</p><h2>Preferências</h2><p>Defina como a Pepita deve trabalhar por padrão.</p></div><img className="sectionPepita" src="/pepita/documents.png" alt=""/></div>
       <div className="settingsGrid">
         <div className="panelCard accountPanel">
-          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
+          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano {PLAN_NAMES[currentPlan]}</span></div>
           {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
             <div className="accountGuestActions"><button className="ghostButton" onClick={()=>onOpenAuth("login")}>Entrar</button><button className="primaryButton" onClick={()=>onOpenAuth("signup")}>Criar conta grátis</button></div>
           ):(
@@ -1266,6 +1280,30 @@ function SettingsView({
           <button className="primaryButton wide" disabled={accountSaving||!newPassword||!confirmPassword} onClick={()=>void changePassword()}>{accountSaving?"Atualizando…":"Alterar senha"}</button>
           <button className="dangerLink accountSignOut" disabled={accountSaving} onClick={()=>void signOut()}>Sair da conta</button>
         </div>}
+        <div className="panelCard subscriptionPanel">
+          <div className="subscriptionHeading">
+            <div>
+              <h3>Assinatura</h3>
+              <p>Veja o plano vinculado à sua conta e gerencie sua assinatura.</p>
+            </div>
+            <span className={`subscriptionStatus ${currentPlan==="free"?"free":"paid"}`}>{currentPlan==="free"?"Grátis":"Ativa"}</span>
+          </div>
+          <div className="subscriptionCurrent">
+            <div>
+              <span>Plano atual</span>
+              <strong>{PLAN_NAMES[currentPlan]}</strong>
+            </div>
+            <strong>{PLAN_PRICES[currentPlan]}</strong>
+          </div>
+          {currentPlan==="free"?(
+            <p className="subscriptionNote">Você não possui uma assinatura paga ativa.</p>
+          ):(
+            <div className="subscriptionActions">
+              <p>O cancelamento será processado pela Stripe quando a integração de pagamentos estiver ativa.</p>
+              <button className="dangerButton subscriptionCancel" type="button" disabled title="Disponível após a integração com a Stripe">Cancelar assinatura</button>
+            </div>
+          )}
+        </div>
         {(accountError||accountMessage)&&<div className={`accountFeedback ${accountError?"error":"success"}`} role={accountError?"alert":"status"}>{accountError||accountMessage}</div>}
         <div className="panelCard exportSettingsPanel">
           <div className="exportSettingsHeading">

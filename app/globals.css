@@ -312,6 +312,20 @@ svg{width:20px;height:20px}
 
 .accountPanel{border-color:#5a4c0b}
 .accountPanel p{margin:0;color:var(--muted);line-height:1.5}
+.subscriptionPanel{grid-column:1/-1;border-color:#454038}
+.subscriptionHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.subscriptionHeading p,.subscriptionNote,.subscriptionActions p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.subscriptionStatus{flex:0 0 auto;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:850}
+.subscriptionStatus.free{border:1px solid #454a50;background:#181b1f;color:#b9bec5}
+.subscriptionStatus.paid{border:1px solid #4d681d;background:#19230d;color:#bce37e}
+.subscriptionCurrent{display:flex;align-items:end;justify-content:space-between;gap:14px;border:1px solid #34383d;background:#101214;border-radius:12px;padding:13px 14px}
+.subscriptionCurrent>div{display:grid;gap:3px}
+.subscriptionCurrent span{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.subscriptionCurrent strong{font-size:15px}
+.subscriptionCurrent>strong{font-size:13px;color:var(--gold)}
+.subscriptionActions{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
+.subscriptionActions p{margin:0}
+.subscriptionCancel:disabled{opacity:.5;cursor:not-allowed}
 .accountPanelHeading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
 .accountPanelHeading h3{margin-bottom:5px}
 .planBadge{flex:0 0 auto;border:1px solid #5e500d;background:#251f08;color:#f8d64e;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
@@ -535,6 +549,11 @@ svg{width:20px;height:20px}
   .historyCardMeta{width:100%;grid-template-columns:1fr auto;align-items:center;justify-items:start}
   .historyCardMeta button{justify-self:end}
   .settingsGrid,.detailGrid{grid-template-columns:1fr}
+  .subscriptionPanel{grid-column:auto}
+  .subscriptionHeading,.subscriptionCurrent{align-items:flex-start}
+  .subscriptionCurrent{display:grid}
+  .subscriptionActions{grid-template-columns:1fr}
+  .subscriptionCancel{width:100%}
   .exportSettingsPanel{grid-column:auto}
   .exportSettingsHeading{display:grid}
   .exportSettingsHeading>span{justify-self:start}
