@@ -97,10 +97,13 @@ function parseAge(text: string) {
 }
 
 function looksLikeSearch(n: string) {
+  const hasSearchVerb = /\b(encontre|buscar|busque|procure|pesquise|traga|quero)\b/.test(n);
+  const hasLocation = /\b(?:em|na cidade de)\s+[a-z]/.test(n);
+  const hasQuantity = /\b\d{1,2}\b/.test(n);
+
   return (
-    /(encontre|buscar|busque|procure|pesquise|traga|quero)/.test(n) &&
-    /(empresa|carro|dent|odont|nutri|academ|clinica|loja|concession|revenda|veiculo)/.test(n)
-  ) || /(empresas? de|na cidade de)/.test(n);
+    hasSearchVerb && (hasLocation || hasQuantity || /\bempresas?\b/.test(n))
+  ) || /\b(empresas? de|na cidade de)\b/.test(n);
 }
 
 function applyFilters(text:string,payload:SearchPayload) {
