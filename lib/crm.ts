@@ -60,34 +60,89 @@ export async function ensureCrmWorkspace(workspace:string) {
   `,params);
 }
 
-export async function loadCrmBoard(workspace:string):Promise<CrmBoard> {
+async function loadCrmRows(workspace:string) {
   const sql=getSql();
-  await ensureCrmWorkspace(workspace);
-  const [columnRows,cardRows,commentRows]=await Promise.all([
-    sql.query("select id,name,slug,position from crm_columns where workspace_id=$1 order by position,id",[workspace]),
-    sql.query("select * from crm_cards where workspace_id=$1 order by column_id,position,id",[workspace]),
-    sql.query("select id,card_id,body,created_at from crm_comments where workspace_id=$1 order by created_at desc",[workspace])
-  ]);
+  return sql.query(`
+    select
+      col.id as column_id,
+      col.name as column_name,
+      col.slug as column_slug,
+      col.position as column_position,
+      case when card.id is null then null else jsonb_build_object(
+        'id',card.id,
+        'column_id',card.column_id,
+        'position',card.position,
+        'company_cnpj',card.company_cnpj,
+        'company_name',card.company_name,
+        'trade_name',card.trade_name,
+        'category',card.category,
+        'city',card.city,
+        'state',card.state,
+        'phone',card.phone,
+        'email',card.email,
+        'website',card.website,
+        'potential_level',card.potential_level,
+        'potential_score',card.potential_score,
+        'source',card.source,
+        'notes',card.notes,
+        'created_at',card.created_at,
+        'updated_at',card.updated_at
+      ) end as card,
+      coalesce((
+        select jsonb_agg(
+          jsonb_build_object(
+            'id',comment.id,
+            'card_id',comment.card_id,
+            'body',comment.body,
+            'created_at',comment.created_at
+          )
+          order by comment.created_at desc
+        )
+        from crm_comments comment
+        where comment.workspace_id=$1 and comment.card_id=card.id
+      ),'[]'::jsonb) as comments
+    from crm_columns col
+    left join crm_cards card
+      on card.workspace_id=col.workspace_id and card.column_id=col.id
+    where col.workspace_id=$1
+    order by col.position,col.id,card.position,card.id
+  `,[workspace]) as unknown as Row[];
+}
 
-  const commentsByCard=new Map<string,CrmComment[]>();
-  for(const row of commentRows as unknown as Row[]) {
-    const comment=mapComment(row);
-    commentsByCard.set(comment.cardId,[...(commentsByCard.get(comment.cardId)||[]),comment]);
+export async function loadCrmBoard(workspace:string):Promise<CrmBoard> {
+  let rows=await loadCrmRows(workspace);
+  if(!rows.length) {
+    await ensureCrmWorkspace(workspace);
+    rows=await loadCrmRows(workspace);
   }
 
-  const cardsByColumn=new Map<string,CrmCard[]>();
-  for(const row of cardRows as unknown as Row[]) {
-    const card=mapCard(row,commentsByCard.get(String(row.id))||[]);
-    cardsByColumn.set(card.columnId,[...(cardsByColumn.get(card.columnId)||[]),card]);
+  const columns:CrmColumn[]=[];
+  const columnsById=new Map<string,CrmColumn>();
+  let totalCards=0;
+
+  for(const row of rows) {
+    const columnId=String(row.column_id);
+    let column=columnsById.get(columnId);
+    if(!column) {
+      column={
+        id:columnId,
+        name:String(row.column_name),
+        slug:String(row.column_slug),
+        position:Number(row.column_position),
+        cards:[]
+      };
+      columnsById.set(columnId,column);
+      columns.push(column);
+    }
+
+    const cardRow=row.card;
+    if(!cardRow||typeof cardRow!=="object"||Array.isArray(cardRow)) continue;
+    const comments=Array.isArray(row.comments)
+      ? row.comments.filter((value):value is Row=>Boolean(value)&&typeof value==="object"&&!Array.isArray(value)).map(mapComment)
+      : [];
+    column.cards.push(mapCard(cardRow as Row,comments));
+    totalCards+=1;
   }
 
-  const columns=(columnRows as unknown as Row[]).map((row):CrmColumn=>({
-    id:String(row.id),
-    name:String(row.name),
-    slug:String(row.slug),
-    position:Number(row.position),
-    cards:cardsByColumn.get(String(row.id))||[]
-  }));
-
-  return {columns,totalCards:cardRows.length};
+  return {columns,totalCards};
 }

@@ -853,7 +853,11 @@ export function PepitaApp() {
           />
         )}
 
-        {view==="crm" && <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>}
+        {authReady&&(
+          <div className={`crmMount ${view==="crm"?"active":""}`} aria-hidden={view!=="crm"} inert={view!=="crm"||undefined}>
+            <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>
+          </div>
+        )}
         {view==="plans" && <PlansView/>}
 
         {view==="settings" && (
