@@ -184,6 +184,7 @@ export function PepitaApp() {
   const voiceBarsRef=useRef<Array<HTMLSpanElement|null>>([]);
 
   useEffect(()=>{
+    if(window.location.hash==="#crm") setView("crm");
     const storedPrefs=localStorage.getItem("pepita.prefs");
     if(storedPrefs) {
       try {
