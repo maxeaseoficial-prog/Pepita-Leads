@@ -189,6 +189,7 @@ export function PepitaApp() {
   const [authReady,setAuthReady]=useState(!isSupabaseAuthConfigured());
   const [authMode,setAuthMode]=useState<AuthMode|null>(null);
   const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
+  const [isMobile,setIsMobile]=useState(false);
   const scrollRef=useRef<HTMLDivElement>(null);
   const recognitionRef=useRef<VoiceRecognition|null>(null);
   const voiceFinalRef=useRef("");
@@ -209,6 +210,14 @@ export function PepitaApp() {
     setSidebarCollapsed(localStorage.getItem("pepita.sidebar-collapsed")==="true");
     refreshHealth();
     return ()=>window.removeEventListener("hashchange",syncView);
+  },[]);
+
+  useEffect(()=>{
+    const media=window.matchMedia("(max-width: 720px)");
+    const syncMobile=()=>setIsMobile(media.matches);
+    syncMobile();
+    media.addEventListener("change",syncMobile);
+    return ()=>media.removeEventListener("change",syncMobile);
   },[]);
 
   useEffect(()=>{
@@ -680,15 +689,13 @@ export function PepitaApp() {
   }
 
   const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
+  const sidebarHidden=sidebarCollapsed&&!isMobile;
 
   return (
-    <div className={`appShell ${sidebarCollapsed?"sidebarCollapsed":""}`}>
-      <aside className="sidebar">
+    <div className={`appShell ${sidebarHidden?"sidebarCollapsed":""}`}>
+      <aside className="sidebar" aria-hidden={sidebarHidden||undefined} inert={sidebarHidden||undefined}>
         <div className="sidebarTop">
-        <div className="logoBox">
-          <img src="/pepita/icon-64.png" alt="Pepita"/>
-        </div>
-        <button className="sidebarToggle" onClick={toggleSidebar} aria-label={sidebarCollapsed?"Expandir menu lateral":"Ocultar menu lateral"} title={sidebarCollapsed?"Expandir menu":"Ocultar menu"}><SidebarIcon/></button>
+          <button className="sidebarToggle" onClick={toggleSidebar} aria-label="Ocultar menu lateral" title="Ocultar menu"><SidebarIcon/></button>
         </div>
         <nav className="nav">
           <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
@@ -701,6 +708,12 @@ export function PepitaApp() {
           <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
         </nav>
       </aside>
+
+      {sidebarHidden&&(
+        <button className="sidebarReveal" onClick={toggleSidebar} aria-label="Mostrar menu lateral" title="Mostrar menu">
+          <SidebarIcon/>
+        </button>
+      )}
 
       <section className="mainArea" aria-busy={view===null}>
         <header className="topbar">
