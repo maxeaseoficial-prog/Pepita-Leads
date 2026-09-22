@@ -9,7 +9,7 @@ const CACHE_TTL_MS=15*60*1000;
 
 type CachedSearch={expiresAt:number;value:SearchResponse};
 const cache=new Map<string,CachedSearch>();
-type SearchSession={webSearchBlocked:boolean};
+type SearchSession={googleWebBlocked:boolean;alternateWebBlocked:boolean};
 
 type ScrapedPlace={
   name:string;
@@ -76,30 +76,73 @@ async function instagramFromWebSearch(
   input:SearchPayload,
   session:SearchSession
 ):Promise<SocialMatch|null> {
-  if(session.webSearchBlocked) return null;
   const query=`${place.name} ${input.city} Instagram`;
-  await navigate(page,`https://www.google.com/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=br`,25_000);
-  await acceptConsent(page);
-  if(/captcha|sorry\/index/i.test(page.url())) {
-    session.webSearchBlocked=true;
+  if(!session.googleWebBlocked) {
+    try {
+      await navigate(page,`https://www.google.com/search?q=${encodeURIComponent(query)}&hl=pt-BR&gl=br`,15_000);
+      await acceptConsent(page);
+      if(/captcha|sorry\/index/i.test(page.url())) {
+        session.googleWebBlocked=true;
+      } else {
+        const candidates=await page.$$eval('a[href*="instagram.com/"]',anchors=>anchors.slice(0,8).map(anchor=>({
+          href:(anchor as HTMLAnchorElement).href,
+          text:(anchor.closest("div")?.textContent||anchor.textContent||"").replace(/\s+/g," ").trim()
+        })));
+
+        let best:{url:string;score:number}|null=null;
+        for(const candidate of candidates) {
+          const url=instagramProfileUrl(candidate.href);
+          if(!url) continue;
+          const cityBonus=normalize(candidate.text).includes(normalize(input.city))?.15:0;
+          const score=nameMatchScore(place.name,candidate.text)+cityBonus;
+          if(!best||score>best.score) best={url,score};
+        }
+        if(best&&best.score>=.5) {
+          return {url:best.url,confidence:"MATCHED_BY_NAME_AND_CITY",source:"GOOGLE_WEB_SEARCH"};
+        }
+      }
+    } catch {
+      session.googleWebBlocked=true;
+    }
+  }
+
+  if(session.alternateWebBlocked) return null;
+  try {
+    const response=await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,{
+      headers:{"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"},
+      signal:AbortSignal.timeout(10_000)
+    });
+    const html=await response.text();
+    if(!response.ok||/anomaly-modal|challenge-form/i.test(html)) {
+      session.alternateWebBlocked=true;
+      return null;
+    }
+
+    const anchors=[...html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+    let best:{url:string;score:number}|null=null;
+    for(const match of anchors) {
+      const decoded=match[1]
+        .replace(/&amp;/g,"&")
+        .replace(/^\/l\/?\?kh=-1&amp;uddg=/,"");
+      let href=decoded;
+      try {
+        const redirect=new URL(decoded,"https://duckduckgo.com");
+        href=redirect.searchParams.get("uddg")||decoded;
+        href=decodeURIComponent(href);
+      } catch {}
+      const url=instagramProfileUrl(href);
+      if(!url) continue;
+      const text=match[2].replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ");
+      const cityBonus=normalize(text).includes(normalize(input.city))?.15:0;
+      const score=nameMatchScore(place.name,text)+cityBonus;
+      if(!best||score>best.score) best={url,score};
+    }
+    if(!best||best.score<.5) return null;
+    return {url:best.url,confidence:"MATCHED_BY_NAME_AND_CITY",source:"PUBLIC_WEB_SEARCH"};
+  } catch {
+    session.alternateWebBlocked=true;
     return null;
   }
-
-  const candidates=await page.$$eval('a[href*="instagram.com/"]',anchors=>anchors.slice(0,8).map(anchor=>({
-    href:(anchor as HTMLAnchorElement).href,
-    text:(anchor.closest("div")?.textContent||anchor.textContent||"").replace(/\s+/g," ").trim()
-  })));
-
-  let best:{url:string;score:number}|null=null;
-  for(const candidate of candidates) {
-    const url=instagramProfileUrl(candidate.href);
-    if(!url) continue;
-    const cityBonus=normalize(candidate.text).includes(normalize(input.city))?.15:0;
-    const score=nameMatchScore(place.name,candidate.text)+cityBonus;
-    if(!best||score>best.score) best={url,score};
-  }
-  if(!best||best.score<.5) return null;
-  return {url:best.url,confidence:"MATCHED_BY_NAME_AND_CITY",source:"GOOGLE_WEB_SEARCH"};
 }
 
 function formatPhone(value:string) {
@@ -330,7 +373,7 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     }
 
     const results:CompanyLead[]=[];
-    const session:SearchSession={webSearchBlocked:false};
+    const session:SearchSession={googleWebBlocked:false,alternateWebBlocked:false};
     for(const place of places) results.push(await toLead(place,input,page,session));
     const value:SearchResponse={
       input:{...input,quantity:requested},
