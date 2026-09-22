@@ -643,7 +643,8 @@ export function PepitaApp() {
     const payload={...pendingSearch,quantity};
     setPendingSearch(null);
     addMessage("user",String(quantity));
-    await executeSearch(payload,`${quantity} ${payload.niche} em ${payload.city}/${payload.state}`);
+    const location=[payload.city,payload.state].filter(Boolean).join("/");
+    await executeSearch(payload,`${quantity} ${payload.niche} em ${location}`);
   }
 
   async function openDetail(cnpj:string) {

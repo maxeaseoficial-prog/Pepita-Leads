@@ -202,8 +202,14 @@ function cacheKey(input:SearchPayload) {
 function validate(input:SearchPayload) {
   if(!clean(input.niche)) throw new Error("Informe o nicho.");
   if(!clean(input.city)) throw new Error("Informe a cidade.");
-  if(!/^[A-Z]{2}$/.test(input.state)) throw new Error("Informe a UF.");
+  if(input.state&&!/^[A-Z]{2}$/.test(input.state)) throw new Error("Informe uma UF válida.");
   if(!Number.isInteger(input.quantity)||input.quantity<1) throw new Error("Informe uma quantidade válida.");
+}
+
+function stateFromAddress(address:string|null,fallback:string) {
+  if(!address) return fallback;
+  const matches=address.toUpperCase().match(/\b(?:AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/g);
+  return matches?.at(-1)||fallback;
 }
 
 function executablePath() {
@@ -346,7 +352,7 @@ async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:S
     capitalSocialCents:null,
     matrixBranch:"Não informado",
     city:input.city,
-    state:input.state,
+    state:stateFromAddress(place.address,input.state),
     address:place.address,
     postalCode:null,
     phone:place.phone,
@@ -376,7 +382,7 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     const page=await context.newPage();
     page.setDefaultTimeout(15_000);
 
-    const query=`${input.niche} em ${input.city} ${input.state}`;
+    const query=[`${input.niche} em ${input.city}`,input.state].filter(Boolean).join(" ");
     const searchUrl=`https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=pt-BR&gl=br`;
     await navigate(page,searchUrl);
     await acceptConsent(page);

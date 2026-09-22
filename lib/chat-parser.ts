@@ -2,7 +2,7 @@ import type { SearchPayload } from "./types";
 
 const CITY_UF = new Map([
   ["curitiba","PR"],["ponta grossa","PR"],["maringa","PR"],["maringá","PR"],["londrina","PR"],
-  ["sao paulo","SP"],["são paulo","SP"],["campinas","SP"],["santos","SP"],["sorocaba","SP"],
+  ["sao paulo","SP"],["são paulo","SP"],["campinas","SP"],["piracicaba","SP"],["santos","SP"],["sorocaba","SP"],
   ["rio de janeiro","RJ"],["belo horizonte","MG"],["uberlandia","MG"],["uberlandia","MG"],
   ["joinville","SC"],["florianopolis","SC"],["florianópolis","SC"],
   ["porto uniao","SC"],
@@ -11,6 +11,16 @@ const CITY_UF = new Map([
   ["brasilia","DF"],["brasília","DF"],["goiania","GO"],["goiânia","GO"],
   ["salvador","BA"],["recife","PE"],["fortaleza","CE"],
   ["manaus","AM"],["belem","PA"],["belém","PA"]
+]);
+
+const STATE_NAMES = new Map([
+  ["acre","AC"],["alagoas","AL"],["amapa","AP"],["amazonas","AM"],
+  ["bahia","BA"],["ceara","CE"],["distrito federal","DF"],["espirito santo","ES"],
+  ["goias","GO"],["maranhao","MA"],["mato grosso","MT"],["mato grosso do sul","MS"],
+  ["minas gerais","MG"],["para","PA"],["paraiba","PB"],["parana","PR"],
+  ["pernambuco","PE"],["piaui","PI"],["rio de janeiro","RJ"],["rio grande do norte","RN"],
+  ["rio grande do sul","RS"],["rondonia","RO"],["roraima","RR"],["santa catarina","SC"],
+  ["sao paulo","SP"],["sergipe","SE"],["tocantins","TO"]
 ]);
 
 const NICHE_SYNONYMS = [
@@ -25,6 +35,21 @@ function stripAccents(value: string) {
 }
 function normalize(value: string) {
   return stripAccents(value).toLowerCase().replace(/\s+/g," ").trim();
+}
+
+function splitLocation(raw:string) {
+  const cleaned=raw.trim().replace(/[,.]+$/g,"").replace(/\s+/g," ").trim();
+  const withUf=cleaned.match(/^(.*?)(?:\s*[-/,]\s*|\s+)(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/i);
+  if(withUf) return {city:withUf[1].trim(),state:withUf[2].toUpperCase()};
+
+  const tokens=cleaned.replace(/\s*[-/,]\s*/g," ").split(/\s+/);
+  for(const [stateName,state] of STATE_NAMES) {
+    const stateTokens=stateName.split(" ");
+    if(tokens.length<=stateTokens.length) continue;
+    const suffix=normalize(tokens.slice(-stateTokens.length).join(" "));
+    if(suffix===stateName) return {city:tokens.slice(0,-stateTokens.length).join(" "),state};
+  }
+  return {city:cleaned,state:""};
 }
 
 function parseQuantity(text: string) {
@@ -62,13 +87,9 @@ function inferLocation(text: string, current?: SearchPayload | null) {
   const location=text.match(/\b(?:na\s+cidade\s+de|em)\s+(.+?)(?=\s+(?:com|sem|capital|mais|somente|só)\b|$)/i);
   if(location) {
     const raw=location[1].trim().replace(/[,.]+$/,"").trim();
-    const withUf=raw.match(/^(.*?)(?:\s*[-/,]\s*|\s+)([A-Z]{2})$/i);
-    if(withUf) {
-      city=withUf[1].trim();
-      state=withUf[2].toUpperCase();
-    } else {
-      city=raw;
-    }
+    const parsed=splitLocation(raw);
+    city=parsed.city;
+    if(parsed.state) state=parsed.state;
   }
   const inferred = CITY_UF.get(normalize(city));
   if (inferred) state = inferred;
