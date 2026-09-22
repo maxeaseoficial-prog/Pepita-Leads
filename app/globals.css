@@ -225,11 +225,32 @@ svg{width:20px;height:20px}
 .columnsGrid label,.checkLine,.checks3 label,.checks2 label{display:flex;align-items:center;gap:8px;border:1px solid #2d3136;background:#0f1113;border-radius:8px;padding:8px 9px;font-size:12px}
 .columnsGrid input,.checkLine input,.checks3 input,.checks2 input{accent-color:var(--gold)}
 .successBox{border:1px solid #2e6a3d;background:#112619;color:#9be5aa;padding:10px 12px;border-radius:10px}
-.historyList{max-width:1000px;margin:0 auto;display:grid;gap:10px}
+.resultsTabs{max-width:1200px;margin:0 auto 14px;display:flex;gap:7px;border-bottom:1px solid #292d32}
+.resultsTabs button{border:0;border-bottom:2px solid transparent;background:transparent;color:#949aa3;padding:9px 11px 10px;display:flex;align-items:center;gap:7px;font-weight:750}
+.resultsTabs button svg{width:16px;height:16px}
+.resultsTabs button small{min-width:20px;padding:2px 6px;border-radius:999px;background:#202328;color:#9fa5ad;font-size:9px;text-align:center}
+.resultsTabs button.active{color:var(--gold);border-bottom-color:var(--gold)}
+.resultsTabs button.active small{background:#2a2409;color:#f8d64e}
+.resultsHistory{max-width:1200px;margin:0 auto}
+.historyToolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;margin-bottom:12px}
+.historySearch{min-height:42px;border:1px solid #34383d;background:#121417;border-radius:11px;display:flex;align-items:center;gap:9px;padding:0 12px;color:#858b94}
+.historySearch:focus-within{border-color:#6a590d;box-shadow:0 0 0 2px rgba(246,197,21,.07)}
+.historySearch svg{width:17px;height:17px;flex:0 0 auto}
+.historySearch input{width:100%;border:0;outline:0;background:transparent;color:white;font:inherit}
+.historySearch input::placeholder{color:#747a82}
+.historyList{display:grid;gap:10px}
 .historyCard{border:1px solid #34383d;background:#121417;border-radius:12px;padding:13px;display:flex;justify-content:space-between;gap:14px;align-items:center}
-.historyCard>div{display:grid;gap:4px}
-.historyCard span{font-size:11px;color:var(--muted)}
+.historyCardMain,.historyCardMeta{display:grid;gap:4px}
+.historyCardMain{min-width:0}
+.historyCardMain strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.historyCard span,.historyCard small{font-size:11px;color:var(--muted)}
+.historyCardMeta{justify-items:end;flex:0 0 auto}
 .historyCard button{border:1px solid #3a3e44;background:#1a1d21;color:white;border-radius:8px;padding:8px 10px}
+.historyCard button:hover{border-color:#65570d;color:var(--gold)}
+.historyEmpty{min-height:180px;border:1px dashed #34383d;border-radius:14px;background:#101214;color:#8f959d;display:grid;place-items:center;align-content:center;gap:7px;text-align:center}
+.historyEmpty svg{width:25px;height:25px;color:#6f747c}
+.historyEmpty strong{color:#d5d8dd}
+.historyEmpty span{font-size:12px}
 .settingsGrid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .panelCard label{display:grid;gap:6px;font-size:12px}
 .panelCard select,.panelCard input,.modalCard select,.modalCard input{width:100%;border:1px solid #3b4046;background:#1a1d21;color:white;border-radius:8px;padding:9px}
@@ -441,6 +462,12 @@ svg{width:20px;height:20px}
   .viewScroll{padding:20px 14px 90px}
   .sectionHeader{align-items:center}.sectionHeader h2{font-size:24px}
   .sectionPepita{width:66px;height:66px}
+  .resultsTabs{overflow-x:auto}
+  .resultsTabs button{white-space:nowrap}
+  .historyToolbar{grid-template-columns:1fr}
+  .historyCard{align-items:flex-start;flex-direction:column}
+  .historyCardMeta{width:100%;grid-template-columns:1fr auto;align-items:center;justify-items:start}
+  .historyCardMeta button{justify-self:end}
   .settingsGrid,.detailGrid{grid-template-columns:1fr}
   .columnsGrid{grid-template-columns:1fr}
   .checks3,.checks2{grid-template-columns:1fr}

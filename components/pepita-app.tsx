@@ -41,14 +41,15 @@ import {
   SidebarIcon
 } from "./icons";
 
-type View = "chat"|"results"|"crm"|"export"|"history"|"settings";
+type View = "chat"|"results"|"crm"|"export"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
 
-const VIEWS:View[]=["chat","results","crm","export","history","settings"];
+const VIEWS:View[]=["chat","results","crm","export","settings"];
 
 function viewFromHash(hash:string):View {
   const value=hash.replace(/^#/,"").toLowerCase();
+  if(value==="history") return "results";
   return VIEWS.includes(value as View)?value as View:"chat";
 }
 
@@ -704,7 +705,6 @@ export function PepitaApp() {
           <NavButton active={view==="results"} onClick={()=>navigate("results")} icon={<ResultsIcon/>} label="Resultados"/>
           <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
           <NavButton active={view==="export"} onClick={()=>navigate("export")} icon={<ExportIcon/>} label="Exportar"/>
-          <NavButton active={view==="history"} onClick={()=>navigate("history")} icon={<HistoryIcon/>} label="Histórico"/>
           <NavButton active={false} onClick={()=>{}} icon={<PlansIcon/>} label="Planos" disabled/>
           <div className="navSpacer"/>
           <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
@@ -835,9 +835,15 @@ export function PepitaApp() {
           <ResultsView
             results={results}
             dataset={dataset}
+            history={history}
             onDetail={openDetail}
             onNewSearch={()=>{navigate("chat");setStructuredOpen(true);}}
             onAddToCrm={()=>void addResultsToCrm()}
+            onRestoreHistory={restoreHistory}
+            onClearHistory={()=>{
+              setHistory([]);
+              localStorage.removeItem(personalKey("history"));
+            }}
             crmImporting={crmImporting}
             crmImportMessage={crmImportMessage}
           />
@@ -857,17 +863,6 @@ export function PepitaApp() {
               if(!results.length){setExportDone("Nenhum resultado para exportar.");return;}
               downloadFile(results,exportFormat,exportColumns);
               setExportDone(`${results.length} empresa(s) exportada(s) em ${exportFormat.toUpperCase()}.`);
-            }}
-          />
-        )}
-
-        {view==="history" && (
-          <HistoryView
-            history={history}
-            onRestore={restoreHistory}
-            onClear={()=>{
-              setHistory([]);
-              localStorage.removeItem(personalKey("history"));
             }}
           />
         )}
@@ -927,24 +922,115 @@ function WorkingCard() {
   );
 }
 
-function ResultsView({results,dataset,onDetail,onNewSearch,onAddToCrm,crmImporting,crmImportMessage}:{results:CompanyLead[];dataset:SearchResponse["dataset"]|null;onDetail:(cnpj:string)=>void;onNewSearch:()=>void;onAddToCrm:()=>void;crmImporting:boolean;crmImportMessage:string}) {
+function ResultsView({
+  results,dataset,history,onDetail,onNewSearch,onAddToCrm,onRestoreHistory,onClearHistory,crmImporting,crmImportMessage
+}:{
+  results:CompanyLead[];
+  dataset:SearchResponse["dataset"]|null;
+  history:HistoryItem[];
+  onDetail:(cnpj:string)=>void;
+  onNewSearch:()=>void;
+  onAddToCrm:()=>void;
+  onRestoreHistory:(item:HistoryItem)=>void;
+  onClearHistory:()=>void;
+  crmImporting:boolean;
+  crmImportMessage:string;
+}) {
+  const [tab,setTab]=useState<"current"|"history">("current");
+  const [historyQuery,setHistoryQuery]=useState("");
+  const normalizedHistoryQuery=historyQuery.trim().toLocaleLowerCase("pt-BR");
+  const filteredHistory=!normalizedHistoryQuery?history:history.filter(item=>{
+    const searchable=[
+      item.query,
+      item.payload.niche,
+      item.payload.city,
+      item.payload.state,
+      ...item.result.results.flatMap(company=>[
+        company.tradeName,
+        company.legalName,
+        company.category,
+        company.city,
+        company.state
+      ])
+    ].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
+    return searchable.includes(normalizedHistoryQuery);
+  });
+
+  function openHistoryItem(item:HistoryItem) {
+    onRestoreHistory(item);
+    setTab("current");
+  }
+
   return (
     <div className="viewScroll">
       <div className="sectionHeader">
-        <div><p className="eyebrow">RESULTADOS</p><h2>Empresas encontradas</h2><p>{results.length?`${results.length} oportunidade(s) organizadas`:"Nenhuma busca nesta sessão"}</p></div>
+        <div><p className="eyebrow">RESULTADOS</p><h2>Empresas encontradas</h2><p>{tab==="current"?(results.length?`${results.length} oportunidade(s) organizadas`:"Nenhuma busca nesta sessão"):`${history.length} busca(s) salva(s)`}</p></div>
         <button className="ghostButton" onClick={onNewSearch}>Nova busca</button>
       </div>
 
-      {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
+      <div className="resultsTabs" role="tablist" aria-label="Resultados e histórico">
+        <button type="button" role="tab" aria-selected={tab==="current"} className={tab==="current"?"active":""} onClick={()=>setTab("current")}>
+          <ResultsIcon/><span>Resultados atuais</span><small>{results.length}</small>
+        </button>
+        <button type="button" role="tab" aria-selected={tab==="history"} className={tab==="history"?"active":""} onClick={()=>setTab("history")}>
+          <HistoryIcon/><span>Histórico</span><small>{history.length}</small>
+        </button>
+      </div>
 
-      {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
+      {tab==="current"?(
+        <>
+          {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
 
-      {!results.length ? (
-        <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou abra a busca estruturada.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>
-      ) : (
-        <div className="resultsGrid">
-          {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
-        </div>
+          {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
+
+          {!results.length ? (
+            <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou consulte o histórico de buscas.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>
+          ) : (
+            <div className="resultsGrid">
+              {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
+            </div>
+          )}
+        </>
+      ):(
+        <section className="resultsHistory" aria-label="Histórico de resultados">
+          {!!history.length&&(
+            <div className="historyToolbar">
+              <label className="historySearch">
+                <SearchIcon/>
+                <span className="srOnly">Pesquisar no histórico</span>
+                <input
+                  type="search"
+                  value={historyQuery}
+                  onChange={event=>setHistoryQuery(event.target.value)}
+                  placeholder="Pesquisar buscas, empresas ou cidades..."
+                />
+              </label>
+              <button className="ghostButton" type="button" onClick={onClearHistory}>Limpar histórico</button>
+            </div>
+          )}
+
+          {!history.length?(
+            <div className="emptyState"><img src="/pepita/waiting.png" alt=""/><h3>Nenhuma busca salva</h3><p>As buscas realizadas aparecerão aqui automaticamente.</p></div>
+          ):!filteredHistory.length?(
+            <div className="historyEmpty"><SearchIcon/><strong>Nenhum resultado encontrado</strong><span>Tente pesquisar por outro termo.</span></div>
+          ):(
+            <div className="historyList">
+              {filteredHistory.map(item=>(
+                <article className="historyCard" key={item.id}>
+                  <div className="historyCardMain">
+                    <strong>{item.query}</strong>
+                    <span>{new Date(item.at).toLocaleString("pt-BR")}</span>
+                    <small>{item.payload.city?[`${item.payload.city}${item.payload.state?`/${item.payload.state}`:""}`,item.payload.niche].filter(Boolean).join(" · "):item.payload.niche||"Busca personalizada"}</small>
+                  </div>
+                  <div className="historyCardMeta">
+                    <span>{item.result.returned} resultado(s)</span>
+                    <button onClick={()=>openHistoryItem(item)}>Abrir resultados</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );
@@ -1017,24 +1103,6 @@ function ExportView({results,format,setFormat,selected,setSelected,done,onExport
         <button className="primaryButton wide" onClick={onExport} disabled={!results.length}>Exportar planilha</button>
         {done && <div className="successBox"><strong>{done}</strong></div>}
       </div>
-    </div>
-  );
-}
-
-function HistoryView({history,onRestore,onClear}:{history:HistoryItem[];onRestore:(x:HistoryItem)=>void;onClear:()=>void}) {
-  return (
-    <div className="viewScroll">
-      <div className="sectionHeader">
-        <div><p className="eyebrow">HISTÓRICO</p><h2>Buscas recentes</h2><p>Retome uma pesquisa sem perder contexto.</p></div>
-        <button className="ghostButton" onClick={onClear}>Limpar histórico</button>
-      </div>
-      {!history.length?<div className="emptyState"><img src="/pepita/waiting.png" alt=""/><h3>Nenhuma busca salva</h3><p>As últimas buscas aparecerão aqui.</p></div>:
-        <div className="historyList">{history.map(item=>(
-          <article className="historyCard" key={item.id}>
-            <div><strong>{item.query}</strong><span>{new Date(item.at).toLocaleString("pt-BR")}</span></div>
-            <div><span>{item.result.returned} resultado(s)</span><button onClick={()=>onRestore(item)}>Abrir resultados</button></div>
-          </article>
-        ))}</div>}
     </div>
   );
 }
