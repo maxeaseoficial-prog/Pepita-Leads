@@ -40,6 +40,13 @@ import {
 type View = "chat"|"results"|"crm"|"export"|"history"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 
+const VIEWS:View[]=["chat","results","crm","export","history","settings"];
+
+function viewFromHash(hash:string):View {
+  const value=hash.replace(/^#/,"").toLowerCase();
+  return VIEWS.includes(value as View)?value as View:"chat";
+}
+
 type VoiceRecognitionResult = {
   isFinal:boolean;
   0?:{transcript:string};
@@ -185,7 +192,9 @@ export function PepitaApp() {
   const voiceBarsRef=useRef<Array<HTMLSpanElement|null>>([]);
 
   useEffect(()=>{
-    if(window.location.hash==="#crm") setView("crm");
+    const syncView=()=>setView(viewFromHash(window.location.hash));
+    syncView();
+    window.addEventListener("hashchange",syncView);
     const storedPrefs=localStorage.getItem("pepita.prefs");
     if(storedPrefs) {
       try {
@@ -200,6 +209,7 @@ export function PepitaApp() {
       try { setHistory(JSON.parse(storedHistory)); } catch {}
     }
     refreshHealth();
+    return ()=>window.removeEventListener("hashchange",syncView);
   },[]);
 
   useEffect(()=>()=>{
@@ -247,6 +257,12 @@ export function PepitaApp() {
   function updatePrefs(next:Prefs) {
     setPrefs(next);
     localStorage.setItem("pepita.prefs",JSON.stringify(next));
+  }
+
+  function navigate(next:View) {
+    setView(next);
+    const hash=`#${next}`;
+    if(window.location.hash!==hash) window.location.hash=next;
   }
 
   function stopVoiceTimer() {
@@ -516,7 +532,7 @@ export function PepitaApp() {
         addMessage("assistant","Faça uma busca primeiro. Depois eu consigo exportar os resultados.");
         return;
       }
-      setView("export");
+      navigate("export");
       addMessage("assistant","Abri a exportação. Você pode escolher CSV ou XLSX e selecionar as colunas.");
       return;
     }
@@ -594,7 +610,7 @@ export function PepitaApp() {
     setCurrentSearch(item.payload);
     setResults(item.result.results);
     setDataset(item.result.dataset);
-    setView("results");
+    navigate("results");
   }
 
   async function addResultsToCrm() {
@@ -606,8 +622,7 @@ export function PepitaApp() {
         body:JSON.stringify({action:"import-leads",leads:results})
       });
       setCrmRefreshKey(value=>value+1);
-      window.location.hash="crm";
-      setView("crm");
+      navigate("crm");
     } catch(error) {
       setCrmImportMessage(error instanceof Error?error.message:"Não foi possível adicionar os leads ao CRM.");
     } finally { setCrmImporting(false); }
@@ -624,13 +639,13 @@ export function PepitaApp() {
           <img src="/pepita/icon-64.png" alt="Pepita"/>
         </div>
         <nav className="nav">
-          <NavButton active={view==="chat"} onClick={()=>setView("chat")} icon={<ChatIcon/>} label="Chat"/>
-          <NavButton active={view==="results"} onClick={()=>setView("results")} icon={<ResultsIcon/>} label="Resultados"/>
-          <NavButton active={view==="crm"} onClick={()=>setView("crm")} icon={<KanbanIcon/>} label="CRM"/>
-          <NavButton active={view==="export"} onClick={()=>setView("export")} icon={<ExportIcon/>} label="Exportar"/>
-          <NavButton active={view==="history"} onClick={()=>setView("history")} icon={<HistoryIcon/>} label="Histórico"/>
+          <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
+          <NavButton active={view==="results"} onClick={()=>navigate("results")} icon={<ResultsIcon/>} label="Resultados"/>
+          <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
+          <NavButton active={view==="export"} onClick={()=>navigate("export")} icon={<ExportIcon/>} label="Exportar"/>
+          <NavButton active={view==="history"} onClick={()=>navigate("history")} icon={<HistoryIcon/>} label="Histórico"/>
           <div className="navSpacer"/>
-          <NavButton active={view==="settings"} onClick={()=>setView("settings")} icon={<SettingsIcon/>} label="Configurações"/>
+          <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
         </nav>
       </aside>
 
@@ -690,7 +705,7 @@ export function PepitaApp() {
                         </div>
                       )}
                       {message.kind==="result" && (
-                        <button className="inlinePrimary" onClick={()=>setView("results")}>Ver resultados <ArrowRightIcon/></button>
+                        <button className="inlinePrimary" onClick={()=>navigate("results")}>Ver resultados <ArrowRightIcon/></button>
                       )}
                     </div>
                   </div>
@@ -743,7 +758,7 @@ export function PepitaApp() {
             results={results}
             dataset={dataset}
             onDetail={openDetail}
-            onNewSearch={()=>{setView("chat");setStructuredOpen(true);}}
+            onNewSearch={()=>{navigate("chat");setStructuredOpen(true);}}
             onAddToCrm={()=>void addResultsToCrm()}
             crmImporting={crmImporting}
             crmImportMessage={crmImportMessage}
