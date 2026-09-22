@@ -72,6 +72,14 @@ function nameMatchScore(companyName:string,resultText:string,ignoreValues:string
   return expected.filter(token=>actual.has(token)).length/expected.length;
 }
 
+function profileHandleMatches(companyName:string,profileUrl:string,ignoreValues:string[]=[]) {
+  const ignored=new Set(ignoreValues.flatMap(meaningfulTokens).flatMap(token=>[token,token.replace(/s$/,"")]));
+  const expected=[...new Set(meaningfulTokens(companyName))]
+    .filter(token=>token.length>=3&&!ignored.has(token)&&!ignored.has(token.replace(/s$/,"")));
+  const handle=normalize(new URL(profileUrl).pathname.split("/").filter(Boolean)[0]||"").replace(/[^a-z0-9]/g,"");
+  return expected.some(token=>handle.includes(token.replace(/[^a-z0-9]/g,"")));
+}
+
 async function instagramFromWebSearch(
   page:Page,
   place:ScrapedPlace,
@@ -95,6 +103,7 @@ async function instagramFromWebSearch(
         for(const candidate of candidates) {
           const url=instagramProfileUrl(candidate.href);
           if(!url) continue;
+          if(!profileHandleMatches(place.name,url,[input.niche,input.city])) continue;
           const cityBonus=normalize(candidate.text).includes(normalize(input.city))?.15:0;
           const score=nameMatchScore(place.name,candidate.text,[input.niche,input.city])+cityBonus;
           if(!best||score>best.score) best={url,score};
@@ -155,6 +164,7 @@ async function instagramFromWebSearch(
       } catch {}
       const url=instagramProfileUrl(href);
       if(!url) continue;
+      if(!profileHandleMatches(place.name,url,[input.niche,input.city])) continue;
       const text=candidate.text.replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ");
       const cityBonus=normalize(text).includes(normalize(input.city))?.15:0;
       const score=nameMatchScore(place.name,text,[input.niche,input.city])+cityBonus;
