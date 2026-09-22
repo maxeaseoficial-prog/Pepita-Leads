@@ -38,7 +38,6 @@ import {
   SettingsIcon,
   SparkIcon,
   StopIcon,
-  UserIcon,
   SidebarIcon
 } from "./icons";
 
@@ -691,6 +690,8 @@ export function PepitaApp() {
 
   const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
   const sidebarHidden=sidebarCollapsed&&!isMobile;
+  const accountAvatar=String(authUser?.user_metadata?.avatar_url||authUser?.user_metadata?.picture||"");
+  const accountInitial=(authUser?.email?.trim().charAt(0)||"?").toUpperCase();
 
   return (
     <div className={`appShell ${sidebarHidden?"sidebarCollapsed":""}`}>
@@ -727,7 +728,10 @@ export function PepitaApp() {
           </div>
           <div className="authActions">
             {!authReady?<span className="authLoading">Carregando conta…</span>:authUser?(
-              <button className="accountButton" onClick={()=>navigate("settings")}><UserIcon/><span>{authUser.user_metadata?.name||authUser.email}</span></button>
+              <button className="accountButton" onClick={()=>navigate("settings")} aria-label="Abrir perfil" title="Perfil">
+                <span className="accountInitial" aria-hidden="true">{accountInitial}</span>
+                {accountAvatar&&<img className="accountAvatar" src={accountAvatar} alt="" onError={event=>{event.currentTarget.style.display="none";}}/>}
+              </button>
             ):(
               <>
                 <button className="loginButton" onClick={()=>setAuthMode("login")}>Entrar</button>

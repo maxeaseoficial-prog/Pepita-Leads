@@ -75,13 +75,15 @@ svg{width:20px;height:20px}
 .brandTitle{font-weight:850;font-size:19px;letter-spacing:.05em;display:flex;gap:8px;align-items:center}
 .brand small{display:block;color:#b3b6bc;margin-top:2px}
 .authActions{display:flex;align-items:center;gap:9px;min-width:0}
-.loginButton,.signupButton,.accountButton{min-height:40px;border-radius:999px;padding:0 15px;font-weight:750}
+.loginButton,.signupButton{min-height:40px;border-radius:999px;padding:0 15px;font-weight:750}
 .loginButton{border:1px solid #43474d;background:#f4f2ed;color:#111}
 .signupButton{border:1px solid #4b5057;background:#1b1d21;color:#f4f2ed}
 .loginButton:hover{background:#fff}.signupButton:hover{border-color:#75620d;background:#22200f}
-.accountButton{max-width:260px;border:1px solid #4b420f;background:#201d0a;color:#f8d64e;display:flex;align-items:center;gap:8px}
-.accountButton span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.accountButton svg{width:17px;height:17px;flex:0 0 auto}
+.accountButton{width:42px;height:42px;min-height:42px;padding:0;border:1px solid #5c4d0b;border-radius:50%;background:#201d0a;color:#f8d64e;display:grid;place-items:center;overflow:hidden;position:relative;font-weight:850}
+.accountButton:hover{border-color:var(--gold);background:#292407}
+.accountInitial,.accountAvatar{grid-area:1/1;width:100%;height:100%}
+.accountInitial{display:grid;place-items:center;font-size:16px;line-height:1;text-transform:uppercase}
+.accountAvatar{object-fit:cover;position:relative;z-index:1;background:#201d0a}
 .authLoading{font-size:11px;color:var(--muted)}
 .chatView{height:100%;position:relative;overflow:hidden}
 .chatScroll{height:100%;overflow:auto;padding:28px 30px 142px;scrollbar-color:#333 transparent}
@@ -429,8 +431,8 @@ svg{width:20px;height:20px}
   .topbar{padding:10px 14px}
   .brand>img{width:40px;height:40px}
   .brand small{display:none}
-  .authActions{gap:6px}.loginButton,.signupButton,.accountButton{min-height:36px;padding:0 10px;font-size:11px}
-  .accountButton span{max-width:105px}
+  .authActions{gap:6px}.loginButton,.signupButton{min-height:36px;padding:0 10px;font-size:11px}
+  .accountButton{width:38px;height:38px;min-height:38px;padding:0}
   .chatScroll{padding:18px 14px 132px}
   .composer{bottom:12px;width:calc(100% - 24px);grid-template-columns:minmax(0,1fr)}
   .welcome h1{font-size:30px}
