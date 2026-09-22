@@ -63,8 +63,10 @@ function meaningfulTokens(value:string) {
     .filter(token=>token.length>1&&!MATCH_STOP_WORDS.has(token));
 }
 
-function nameMatchScore(companyName:string,resultText:string) {
-  const expected=[...new Set(meaningfulTokens(companyName))];
+function nameMatchScore(companyName:string,resultText:string,ignoreValues:string[]=[]) {
+  const ignored=new Set(ignoreValues.flatMap(meaningfulTokens).flatMap(token=>[token,token.replace(/s$/,"")]));
+  const expected=[...new Set(meaningfulTokens(companyName))]
+    .filter(token=>!ignored.has(token)&&!ignored.has(token.replace(/s$/,"")));
   if(!expected.length) return 0;
   const actual=new Set(meaningfulTokens(resultText));
   return expected.filter(token=>actual.has(token)).length/expected.length;
@@ -94,7 +96,7 @@ async function instagramFromWebSearch(
           const url=instagramProfileUrl(candidate.href);
           if(!url) continue;
           const cityBonus=normalize(candidate.text).includes(normalize(input.city))?.15:0;
-          const score=nameMatchScore(place.name,candidate.text)+cityBonus;
+          const score=nameMatchScore(place.name,candidate.text,[input.niche,input.city])+cityBonus;
           if(!best||score>best.score) best={url,score};
         }
         if(best&&best.score>=.5) {
@@ -133,11 +135,11 @@ async function instagramFromWebSearch(
     }
     for(const match of document.matchAll(/uddg=([^&\s)"']+)/gi)) {
       const at=match.index||0;
-      candidates.push({href:match[1],text:document.slice(Math.max(0,at-250),at+500)});
+      candidates.push({href:match[1],text:document.slice(at,at+700)});
     }
     for(const match of document.matchAll(/https?:\/\/(?:www\.)?instagram\.com\/[A-Za-z0-9._%-]+/gi)) {
       const at=match.index||0;
-      candidates.push({href:match[0],text:document.slice(Math.max(0,at-250),at+500)});
+      candidates.push({href:match[0],text:document.slice(at,at+700)});
     }
 
     let best:{url:string;score:number}|null=null;
@@ -155,7 +157,7 @@ async function instagramFromWebSearch(
       if(!url) continue;
       const text=candidate.text.replace(/<[^>]+>/g," ").replace(/&[^;]+;/g," ");
       const cityBonus=normalize(text).includes(normalize(input.city))?.15:0;
-      const score=nameMatchScore(place.name,text)+cityBonus;
+      const score=nameMatchScore(place.name,text,[input.niche,input.city])+cityBonus;
       if(!best||score>best.score) best={url,score};
     }
     if(!best||best.score<.5) return null;
