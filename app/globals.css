@@ -287,6 +287,7 @@ svg{width:20px;height:20px}
 .leadOrigin.search{border-color:#574a0c;background:#211d08;color:#f3d55e}
 .crmCardTop .dragHandle{margin:-6px -6px -4px 0;width:28px;height:28px}
 .crmCardMain{width:100%;padding:0;border:0;background:transparent;color:var(--text);text-align:left;display:grid;gap:5px}
+.crmCardMain:focus-visible,.crmDrawer button:focus-visible,.crmDrawer input:focus-visible,.crmDrawer select:focus-visible,.crmDrawer textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .crmCardMain>strong{font-size:13px;line-height:1.3}
 .crmCardMain>small{color:#858b93;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .crmCardPlace{display:flex;align-items:center;gap:5px;color:#9aa0a8;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
