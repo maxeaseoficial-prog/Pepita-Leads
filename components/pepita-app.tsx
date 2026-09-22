@@ -1129,6 +1129,27 @@ function SettingsView({
           <label className="checkLine"><input type="checkbox" checked={prefs.hasPhone} onChange={e=>setPrefs({...prefs,hasPhone:e.target.checked})}/>Exigir telefone</label>
           <label className="checkLine"><input type="checkbox" checked={prefs.hasEmail} onChange={e=>setPrefs({...prefs,hasEmail:e.target.checked})}/>Exigir e-mail</label>
         </div>
+        <div className="panelCard accountPanel">
+          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
+          {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
+            <div className="accountGuestActions"><button className="ghostButton" onClick={()=>onOpenAuth("login")}>Entrar</button><button className="primaryButton" onClick={()=>onOpenAuth("signup")}>Criar conta grátis</button></div>
+          ):(
+            <>
+              <label>Nome<input value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="Como você quer ser chamado"/></label>
+              <label>E-mail<input value={user.email||""} readOnly aria-readonly="true"/></label>
+              <button className="ghostButton wide" disabled={accountSaving||name.trim()===String(user.user_metadata?.name||"").trim()} onClick={()=>void saveName()}>{accountSaving?"Salvando…":"Salvar nome"}</button>
+            </>
+          )}
+        </div>
+        {user&&<div className="panelCard securityPanel">
+          <h3>Segurança</h3>
+          <p>Sua senha atual nunca é exibida. Para alterá-la, crie uma nova abaixo.</p>
+          <label>Nova senha<input type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={event=>setNewPassword(event.target.value)} placeholder="Mínimo de 8 caracteres"/></label>
+          <label>Confirmar nova senha<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} placeholder="Digite a mesma senha"/></label>
+          <button className="primaryButton wide" disabled={accountSaving||!newPassword||!confirmPassword} onClick={()=>void changePassword()}>{accountSaving?"Atualizando…":"Alterar senha"}</button>
+          <button className="dangerLink accountSignOut" disabled={accountSaving} onClick={()=>void signOut()}>Sair da conta</button>
+        </div>}
+        {(accountError||accountMessage)&&<div className={`accountFeedback ${accountError?"error":"success"}`} role={accountError?"alert":"status"}>{accountError||accountMessage}</div>}
         <div className="panelCard exportSettingsPanel">
           <div className="exportSettingsHeading">
             <div>
@@ -1157,27 +1178,6 @@ function SettingsView({
           {!results.length&&<span className="exportHint">Faça uma busca para liberar a exportação.</span>}
           {exportDone&&<div className="successBox"><strong>{exportDone}</strong></div>}
         </div>
-        <div className="panelCard accountPanel">
-          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
-          {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
-            <div className="accountGuestActions"><button className="ghostButton" onClick={()=>onOpenAuth("login")}>Entrar</button><button className="primaryButton" onClick={()=>onOpenAuth("signup")}>Criar conta grátis</button></div>
-          ):(
-            <>
-              <label>Nome<input value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="Como você quer ser chamado"/></label>
-              <label>E-mail<input value={user.email||""} readOnly aria-readonly="true"/></label>
-              <button className="ghostButton wide" disabled={accountSaving||name.trim()===String(user.user_metadata?.name||"").trim()} onClick={()=>void saveName()}>{accountSaving?"Salvando…":"Salvar nome"}</button>
-            </>
-          )}
-        </div>
-        {user&&<div className="panelCard securityPanel">
-          <h3>Segurança</h3>
-          <p>Sua senha atual nunca é exibida. Para alterá-la, crie uma nova abaixo.</p>
-          <label>Nova senha<input type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={event=>setNewPassword(event.target.value)} placeholder="Mínimo de 8 caracteres"/></label>
-          <label>Confirmar nova senha<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} placeholder="Digite a mesma senha"/></label>
-          <button className="primaryButton wide" disabled={accountSaving||!newPassword||!confirmPassword} onClick={()=>void changePassword()}>{accountSaving?"Atualizando…":"Alterar senha"}</button>
-          <button className="dangerLink accountSignOut" disabled={accountSaving} onClick={()=>void signOut()}>Sair da conta</button>
-        </div>}
-        {(accountError||accountMessage)&&<div className={`accountFeedback ${accountError?"error":"success"}`} role={accountError?"alert":"status"}>{accountError||accountMessage}</div>}
       </div>
     </div>
   );
