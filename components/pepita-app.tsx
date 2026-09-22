@@ -606,6 +606,7 @@ export function PepitaApp() {
         body:JSON.stringify({action:"import-leads",leads:results})
       });
       setCrmRefreshKey(value=>value+1);
+      window.location.hash="crm";
       setView("crm");
     } catch(error) {
       setCrmImportMessage(error instanceof Error?error.message:"Não foi possível adicionar os leads ao CRM.");

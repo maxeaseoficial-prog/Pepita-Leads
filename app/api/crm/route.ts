@@ -73,13 +73,25 @@ export async function POST(request:Request) {
         potentialLevel:lead.potential?.level||null,
         potentialScore:Number.isFinite(lead.potential?.score)?lead.potential.score:null
       }));
+      const params:unknown[]=[WORKSPACE];
+      const valueRows=payload.map((lead,ordinal)=>{
+        const values=[
+          lead.cnpj,lead.companyName,lead.tradeName,lead.category,lead.city,lead.state,
+          lead.phone,lead.email,lead.website,lead.potentialLevel,lead.potentialScore,ordinal
+        ];
+        const placeholders=values.map(value=>{
+          params.push(value);
+          return `$${params.length}`;
+        });
+        return `(${placeholders.join(",")})`;
+      });
       await sql.query(`
         with target as (
           select id from crm_columns where workspace_id=$1 and slug='prospectar' limit 1
         ), incoming as (
-          select * from jsonb_to_recordset($2::jsonb) as x(
-            "cnpj" text,"companyName" text,"tradeName" text,"category" text,"city" text,"state" text,
-            "phone" text,"email" text,"website" text,"potentialLevel" text,"potentialScore" integer
+          select * from (values ${valueRows.join(",")}) as x(
+            "cnpj","companyName","tradeName","category","city","state",
+            "phone","email","website","potentialLevel","potentialScore","ordinal"
           )
         ), base as (
           select coalesce(max(position)+1,0) as start_at from crm_cards where column_id=(select id from target)
@@ -88,12 +100,12 @@ export async function POST(request:Request) {
           workspace_id,column_id,position,company_cnpj,company_name,trade_name,category,city,state,phone,email,website,
           potential_level,potential_score,source
         )
-        select $1,(select id from target),(select start_at from base)+row_number() over()-1,
+        select $1,(select id from target),(select start_at from base)+"ordinal",
           "cnpj","companyName","tradeName","category","city",upper("state"),"phone","email","website",
           "potentialLevel","potentialScore",'search'
         from incoming
         on conflict (workspace_id,company_cnpj) where company_cnpj is not null and company_cnpj<>'' do nothing
-      `,[WORKSPACE,JSON.stringify(payload)]);
+      `,params);
     } else if(action==="update-card") {
       const cardId=text(body.cardId,40);
       const companyName=text(body.companyName,180);
