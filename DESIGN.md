@@ -136,6 +136,11 @@ Campos do CRM têm fundo grafite e rótulo externo. Foco muda a borda para ouro 
 ### Navigation
 Ícone sobre rótulo, hover escuro e seleção de ouro sobre fundo sombreado. Uma linha interna indica seleção na lateral do desktop e na base do mobile. O CRM mantém a navegação existente.
 
+A lateral pode ser recolhida no desktop, preservando os ícones e ocultando apenas os rótulos. “Planos” aparece como destino futuro desativado, com estado visual explícito. No mobile, a navegação permanece como barra inferior.
+
+### Authentication
+O cabeçalho apresenta ações compactas de entrar e criar conta. Cadastro e entrada usam uma sobreposição focada, com a Pepita como assinatura visual, campos rotulados e mensagens junto ao formulário. Usuários autenticados veem um controle de conta no cabeçalho e gerenciam nome, plano e segurança nas Configurações. Senhas existentes nunca são exibidas; a troca solicita uma nova senha e confirmação.
+
 ### Chips
 Origem manual usa cápsula neutra; origem da busca recebe ouro sombreado. Chips de potencial distinguem alto, médio e baixo por cor e texto. Chips informativos não são botões.
 

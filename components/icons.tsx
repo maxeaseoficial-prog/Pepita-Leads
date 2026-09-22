@@ -34,3 +34,6 @@ export const NoteIcon=(p:Props)=><Base {...p}><path d="M5 3h14v18H5z"/><path d="
 export const MailIcon=(p:Props)=><Base {...p}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></Base>;
 export const TrashIcon=(p:Props)=><Base {...p}><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 11v6M14 11v6"/></Base>;
 export const EditIcon=(p:Props)=><Base {...p}><path d="m4 20 4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10Z"/><path d="m14 7 3 3"/></Base>;
+export const UserIcon=(p:Props)=><Base {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></Base>;
+export const SidebarIcon=(p:Props)=><Base {...p}><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></Base>;
+export const PlansIcon=(p:Props)=><Base {...p}><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5Z"/><path d="M4 9h16M8 15h3"/></Base>;

@@ -42,10 +42,13 @@ type CardForm={
 
 const EMPTY_FORM:CardForm={companyName:"",tradeName:"",category:"",city:"",state:"",phone:"",email:"",website:"",notes:""};
 
-async function api(body?:Record<string,unknown>):Promise<CrmBoardType> {
+async function api(body?:Record<string,unknown>,accessToken?:string|null):Promise<CrmBoardType> {
+  const headers:Record<string,string>={};
+  if(body) headers["Content-Type"]="application/json";
+  if(accessToken) headers.Authorization=`Bearer ${accessToken}`;
   const response=await fetch("/api/crm",body?{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
-  }:{cache:"no-store"});
+    method:"POST",headers,body:JSON.stringify(body)
+  }:{cache:"no-store",headers});
   const data=await response.json().catch(()=>null);
   if(!response.ok) throw new Error(data?.error||"Não foi possível acessar o CRM.");
   return data;
@@ -60,7 +63,7 @@ function cardForm(card?:CrmCard):CardForm {
   };
 }
 
-export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
+export function CrmBoard({refreshKey=0,accessToken=null}:{refreshKey?:number;accessToken?:string|null}) {
   const [board,setBoard]=useState<CrmBoardType|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
@@ -75,7 +78,7 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
     useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates})
   );
 
-  useEffect(()=>{ void reload(); },[refreshKey]);
+  useEffect(()=>{ void reload(); },[refreshKey,accessToken]);
   useEffect(()=>{
     if(!selectedId&&!createColumnId) return;
     const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
@@ -106,7 +109,7 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
 
   async function reload() {
     setLoading(true);setError("");
-    try { setBoard(await api()); }
+    try { setBoard(await api(undefined,accessToken)); }
     catch(reason) { setError(reason instanceof Error?reason.message:"Não foi possível carregar o CRM."); }
     finally { setLoading(false); }
   }
@@ -115,7 +118,7 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
     const previous=board;
     if(optimistic) setBoard(optimistic);
     setSaving(true);setError("");
-    try { setBoard(await api(payload));return true; }
+    try { setBoard(await api(payload,accessToken));return true; }
     catch(reason) {
       if(previous) setBoard(previous);
       setError(reason instanceof Error?reason.message:"Não foi possível salvar a alteração.");

@@ -28,7 +28,8 @@ O fluxo principal começa no chat ou na busca estruturada, passa por resultados 
 - Dossiê cadastral, análise de potencial, histórico, exportação e entrada por voz.
 - Mini CRM com colunas e cartões reordenáveis, cadastro manual, observações e comentários de atividade.
 - Colunas iniciais: Prospectar, Abordar, Em contato, Reunião marcada, Em negociação, Fechou e Perdeu.
-- A instalação atual ainda não possui autenticação; o CRM opera em um espaço compartilhado único. A separação por usuário ou equipe permanece uma decisão futura.
+- O acesso por e-mail e senha usa Supabase Auth. Usuários autenticados recebem um espaço individual no CRM; visitantes continuam com o espaço de demonstração compartilhado.
+- Cada conta pode manter nome, preferências e histórico próprios, alterar sua senha e visualizar o plano gratuito atual.
 - A base completa da Receita Federal pode estar em processo de importação, sem impedir o uso manual do CRM.
 
 ## Brand Commitments

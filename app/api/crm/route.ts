@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { loadCrmBoard, WORKSPACE } from "@/lib/crm";
+import { loadCrmBoard } from "@/lib/crm";
 import { getSql } from "@/lib/db";
+import { workspaceForRequest } from "@/lib/supabase/server-auth";
 import type { CompanyLead } from "@/lib/types";
 
 export const runtime="nodejs";
@@ -15,14 +16,20 @@ function slugify(value:string) {
 }
 
 function error(message:string,status=400) {
-  return NextResponse.json({error:message},{status});
+  return NextResponse.json({error:message},{status,headers:{"Cache-Control":"private, no-store"}});
 }
 
-export async function GET() {
+function board(data:Awaited<ReturnType<typeof loadCrmBoard>>) {
+  return NextResponse.json(data,{headers:{"Cache-Control":"private, no-store"}});
+}
+
+export async function GET(request:Request) {
   try {
-    return NextResponse.json(await loadCrmBoard());
+    const workspace=await workspaceForRequest(request);
+    return board(await loadCrmBoard(workspace));
   } catch(errorValue) {
     console.error("CRM_GET_ERROR",errorValue);
+    if(errorValue instanceof Error&&errorValue.message==="INVALID_SESSION") return error("Sua sessão expirou. Entre novamente.",401);
     return error("Não foi possível carregar o CRM agora.",500);
   }
 }
@@ -36,6 +43,7 @@ export async function POST(request:Request) {
   const sql=getSql();
 
   try {
+    const workspace=await workspaceForRequest(request);
     if(action==="create-column") {
       const name=text(body.name,60);
       if(!name) return error("Dê um nome para a coluna.");
@@ -44,7 +52,7 @@ export async function POST(request:Request) {
         insert into crm_columns (workspace_id,name,slug,position)
         values ($1,$2,$3 || '-' || substr(gen_random_uuid()::text,1,6),
           coalesce((select max(position)+1 from crm_columns where workspace_id=$1),0))
-      `,[WORKSPACE,name,base]);
+      `,[workspace,name,base]);
     } else if(action==="create-card") {
       const columnId=text(body.columnId,40);
       const companyName=text(body.companyName,180);
@@ -56,7 +64,7 @@ export async function POST(request:Request) {
         select $1,c.id,coalesce((select max(position)+1 from crm_cards where column_id=c.id),0),
           $3,$4,$5,$6,$7,$8,$9,$10,'manual'
         from crm_columns c where c.id=$2 and c.workspace_id=$1
-      `,[WORKSPACE,columnId,companyName,text(body.tradeName,180)||null,text(body.category,160)||null,text(body.city,100)||null,text(body.state,2).toUpperCase()||null,text(body.phone,40)||null,text(body.email,180)||null,text(body.website,500)||null]);
+      `,[workspace,columnId,companyName,text(body.tradeName,180)||null,text(body.category,160)||null,text(body.city,100)||null,text(body.state,2).toUpperCase()||null,text(body.phone,40)||null,text(body.email,180)||null,text(body.website,500)||null]);
     } else if(action==="import-leads") {
       const leads=Array.isArray(body.leads)?body.leads.slice(0,100) as CompanyLead[]:[];
       if(!leads.length) return error("Não há leads para adicionar.");
@@ -73,7 +81,7 @@ export async function POST(request:Request) {
         potentialLevel:lead.potential?.level||null,
         potentialScore:Number.isFinite(lead.potential?.score)?lead.potential.score:null
       }));
-      const params:unknown[]=[WORKSPACE];
+      const params:unknown[]=[workspace];
       const valueRows=payload.map((lead,ordinal)=>{
         const values=[
           lead.cnpj,lead.companyName,lead.tradeName,lead.category,lead.city,lead.state,
@@ -115,7 +123,7 @@ export async function POST(request:Request) {
         update crm_cards set company_name=$3,trade_name=$4,category=$5,city=$6,state=$7,
           phone=$8,email=$9,website=$10,notes=$11
         where id=$2 and workspace_id=$1
-      `,[WORKSPACE,cardId,companyName,text(body.tradeName,180)||null,text(body.category,160)||null,text(body.city,100)||null,text(body.state,2).toUpperCase()||null,text(body.phone,40)||null,text(body.email,180)||null,text(body.website,500)||null,text(body.notes,10000)]);
+      `,[workspace,cardId,companyName,text(body.tradeName,180)||null,text(body.category,160)||null,text(body.city,100)||null,text(body.state,2).toUpperCase()||null,text(body.phone,40)||null,text(body.email,180)||null,text(body.website,500)||null,text(body.notes,10000)]);
     } else if(action==="add-comment") {
       const cardId=text(body.cardId,40);
       const comment=text(body.comment,2000);
@@ -123,12 +131,12 @@ export async function POST(request:Request) {
       await sql.query(`
         insert into crm_comments (workspace_id,card_id,body)
         select $1,c.id,$3 from crm_cards c where c.id=$2 and c.workspace_id=$1
-      `,[WORKSPACE,cardId,comment]);
-      await sql.query("update crm_cards set updated_at=now() where id=$1 and workspace_id=$2",[cardId,WORKSPACE]);
+      `,[workspace,cardId,comment]);
+      await sql.query("update crm_cards set updated_at=now() where id=$1 and workspace_id=$2",[cardId,workspace]);
     } else if(action==="reorder-columns") {
       const columnIds=Array.isArray(body.columnIds)?body.columnIds.map(value=>text(value,40)).filter(Boolean):[];
       if(columnIds.length) {
-        const params:unknown[]=[WORKSPACE];
+        const params:unknown[]=[workspace];
         const values=columnIds.map((id,position)=>{
           params.push(id,position);
           return `($${params.length-1}::uuid,$${params.length}::integer)`;
@@ -145,7 +153,7 @@ export async function POST(request:Request) {
         id:text(cardId,40),columnId:text(column.id,40),position
       })):[]).filter(item=>item.id&&item.columnId);
       if(!positions.length) return error("Não há cartões para mover.");
-      const params:unknown[]=[WORKSPACE];
+      const params:unknown[]=[workspace];
       const values=positions.map(item=>{
         params.push(item.id,item.columnId,item.position);
         return `($${params.length-2}::uuid,$${params.length-1}::uuid,$${params.length}::integer)`;
@@ -157,14 +165,15 @@ export async function POST(request:Request) {
       `,params);
     } else if(action==="delete-card") {
       const cardId=text(body.cardId,40);
-      await sql.query("delete from crm_cards where id=$1 and workspace_id=$2",[cardId,WORKSPACE]);
+      await sql.query("delete from crm_cards where id=$1 and workspace_id=$2",[cardId,workspace]);
     } else {
       return error("Ação do CRM não reconhecida.");
     }
 
-    return NextResponse.json(await loadCrmBoard());
+    return board(await loadCrmBoard(workspace));
   } catch(errorValue) {
     console.error("CRM_POST_ERROR",action,errorValue);
+    if(errorValue instanceof Error&&errorValue.message==="INVALID_SESSION") return error("Sua sessão expirou. Entre novamente.",401);
     return error("Não foi possível salvar essa alteração no CRM.",500);
   }
 }

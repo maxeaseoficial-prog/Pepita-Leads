@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { User } from "@supabase/supabase-js";
 import type {
   CompanyDetail,
   CompanyLead,
@@ -13,6 +14,7 @@ import { parseChatCommand } from "@/lib/chat-parser";
 import { downloadFile, EXPORT_COLUMNS } from "@/lib/export";
 import { money } from "@/lib/format";
 import { CrmBoard } from "./crm-board";
+import { createClient, isSupabaseAuthConfigured } from "@/lib/supabase/client";
 import {
   ArrowUpIcon,
   ArrowRightIcon,
@@ -29,16 +31,20 @@ import {
   MapPinIcon,
   MicIcon,
   PhoneIcon,
+  PlansIcon,
   ResultsIcon,
   SearchIcon,
   SendIcon,
   SettingsIcon,
   SparkIcon,
-  StopIcon
+  StopIcon,
+  UserIcon,
+  SidebarIcon
 } from "./icons";
 
 type View = "chat"|"results"|"crm"|"export"|"history"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
+type AuthMode = "login"|"signup";
 
 const VIEWS:View[]=["chat","results","crm","export","history","settings"];
 
@@ -178,6 +184,11 @@ export function PepitaApp() {
   const [crmRefreshKey,setCrmRefreshKey]=useState(0);
   const [crmImporting,setCrmImporting]=useState(false);
   const [crmImportMessage,setCrmImportMessage]=useState("");
+  const [authUser,setAuthUser]=useState<User|null>(null);
+  const [accessToken,setAccessToken]=useState<string|null>(null);
+  const [authReady,setAuthReady]=useState(!isSupabaseAuthConfigured());
+  const [authMode,setAuthMode]=useState<AuthMode|null>(null);
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
   const scrollRef=useRef<HTMLDivElement>(null);
   const recognitionRef=useRef<VoiceRecognition|null>(null);
   const voiceFinalRef=useRef("");
@@ -195,21 +206,32 @@ export function PepitaApp() {
     const syncView=()=>setView(viewFromHash(window.location.hash));
     syncView();
     window.addEventListener("hashchange",syncView);
-    const storedPrefs=localStorage.getItem("pepita.prefs");
-    if(storedPrefs) {
-      try {
-        const parsed={...DEFAULT_PREFS,...JSON.parse(storedPrefs)};
-        setPrefs(parsed);
-        setStructured(defaultSearch(parsed));
-        setExportFormat(parsed.defaultExport);
-      } catch {}
-    }
-    const storedHistory=localStorage.getItem("pepita.history");
-    if(storedHistory) {
-      try { setHistory(JSON.parse(storedHistory)); } catch {}
-    }
+    setSidebarCollapsed(localStorage.getItem("pepita.sidebar-collapsed")==="true");
     refreshHealth();
     return ()=>window.removeEventListener("hashchange",syncView);
+  },[]);
+
+  useEffect(()=>{
+    if(!isSupabaseAuthConfigured()) {
+      loadPersonalState("guest");
+      setAuthReady(true);
+      return;
+    }
+    const supabase=createClient();
+    void supabase.auth.getSession().then(({data})=>{
+      setAuthUser(data.session?.user||null);
+      setAccessToken(data.session?.access_token||null);
+      loadPersonalState(data.session?.user.id||"guest");
+      setAuthReady(true);
+    });
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      setAuthUser(session?.user||null);
+      setAccessToken(session?.access_token||null);
+      loadPersonalState(session?.user.id||"guest");
+      setCrmRefreshKey(value=>value+1);
+      setAuthReady(true);
+    });
+    return ()=>subscription.unsubscribe();
   },[]);
 
   useEffect(()=>()=>{
@@ -254,9 +276,35 @@ export function PepitaApp() {
     }
   }
 
+  function loadPersonalState(scope:string) {
+    const storedPrefs=localStorage.getItem(`pepita.prefs:${scope}`)||localStorage.getItem("pepita.prefs");
+    let nextPrefs=DEFAULT_PREFS;
+    if(storedPrefs) {
+      try { nextPrefs={...DEFAULT_PREFS,...JSON.parse(storedPrefs)}; } catch {}
+    }
+    setPrefs(nextPrefs);
+    setStructured(defaultSearch(nextPrefs));
+    setExportFormat(nextPrefs.defaultExport);
+    const storedHistory=localStorage.getItem(`pepita.history:${scope}`)||localStorage.getItem("pepita.history");
+    if(storedHistory) {
+      try { setHistory(JSON.parse(storedHistory)); } catch { setHistory([]); }
+    } else setHistory([]);
+  }
+
+  function personalKey(name:"prefs"|"history") {
+    return `pepita.${name}:${authUser?.id||"guest"}`;
+  }
+
   function updatePrefs(next:Prefs) {
     setPrefs(next);
-    localStorage.setItem("pepita.prefs",JSON.stringify(next));
+    localStorage.setItem(personalKey("prefs"),JSON.stringify(next));
+  }
+
+  function toggleSidebar() {
+    setSidebarCollapsed(value=>{
+      localStorage.setItem("pepita.sidebar-collapsed",String(!value));
+      return !value;
+    });
   }
 
   function navigate(next:View) {
@@ -467,7 +515,7 @@ export function PepitaApp() {
     const item:HistoryItem={id:id(),at:new Date().toISOString(),query,payload,result};
     const next=[item,...history].slice(0,12);
     setHistory(next);
-    localStorage.setItem("pepita.history",JSON.stringify(next));
+    localStorage.setItem(personalKey("history"),JSON.stringify(next));
   }
 
   async function executeSearch(payload:SearchPayload,query:string) {
@@ -618,7 +666,10 @@ export function PepitaApp() {
     setCrmImporting(true);setCrmImportMessage("");
     try {
       await fetchJson("/api/crm",{
-        method:"POST",headers:{"Content-Type":"application/json"},
+        method:"POST",headers:{
+          "Content-Type":"application/json",
+          ...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})
+        },
         body:JSON.stringify({action:"import-leads",leads:results})
       });
       setCrmRefreshKey(value=>value+1);
@@ -631,10 +682,13 @@ export function PepitaApp() {
   const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
 
   return (
-    <div className="appShell">
+    <div className={`appShell ${sidebarCollapsed?"sidebarCollapsed":""}`}>
       <aside className="sidebar">
+        <div className="sidebarTop">
         <div className="logoBox">
           <img src="/pepita/icon-64.png" alt="Pepita"/>
+        </div>
+        <button className="sidebarToggle" onClick={toggleSidebar} aria-label={sidebarCollapsed?"Expandir menu lateral":"Ocultar menu lateral"} title={sidebarCollapsed?"Expandir menu":"Ocultar menu"}><SidebarIcon/></button>
         </div>
         <nav className="nav">
           <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
@@ -642,6 +696,7 @@ export function PepitaApp() {
           <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
           <NavButton active={view==="export"} onClick={()=>navigate("export")} icon={<ExportIcon/>} label="Exportar"/>
           <NavButton active={view==="history"} onClick={()=>navigate("history")} icon={<HistoryIcon/>} label="Histórico"/>
+          <NavButton active={false} onClick={()=>{}} icon={<PlansIcon/>} label="Planos" disabled/>
           <div className="navSpacer"/>
           <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
         </nav>
@@ -655,6 +710,16 @@ export function PepitaApp() {
               <div className="brandTitle">PEPITA</div>
               <small>Seu assistente de prospecção empresarial</small>
             </div>
+          </div>
+          <div className="authActions">
+            {!authReady?<span className="authLoading">Carregando conta…</span>:authUser?(
+              <button className="accountButton" onClick={()=>navigate("settings")}><UserIcon/><span>{authUser.user_metadata?.name||authUser.email}</span></button>
+            ):(
+              <>
+                <button className="loginButton" onClick={()=>setAuthMode("login")}>Entrar</button>
+                <button className="signupButton" onClick={()=>setAuthMode("signup")}>Cadastre-se grátis</button>
+              </>
+            )}
           </div>
         </header>
 
@@ -761,7 +826,7 @@ export function PepitaApp() {
           />
         )}
 
-        {view==="crm" && <CrmBoard refreshKey={crmRefreshKey}/>}
+        {view==="crm" && <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>}
 
         {view==="export" && (
           <ExportView
@@ -785,7 +850,7 @@ export function PepitaApp() {
             onRestore={restoreHistory}
             onClear={()=>{
               setHistory([]);
-              localStorage.removeItem("pepita.history");
+              localStorage.removeItem(personalKey("history"));
             }}
           />
         )}
@@ -796,6 +861,9 @@ export function PepitaApp() {
             prefs={prefs}
             setPrefs={updatePrefs}
             refreshHealth={refreshHealth}
+            user={authUser}
+            authConfigured={isSupabaseAuthConfigured()}
+            onOpenAuth={setAuthMode}
           />
         )}
       </section>
@@ -817,12 +885,14 @@ export function PepitaApp() {
           onClose={()=>setDetail(null)}
         />
       )}
+
+      {authMode&&<AuthModal mode={authMode} onMode={setAuthMode} onClose={()=>setAuthMode(null)}/>}
     </div>
   );
 }
 
-function NavButton({active,onClick,icon,label}:{active:boolean;onClick:()=>void;icon:ReactNode;label:string}) {
-  return <button className={`navButton ${active?"active":""}`} onClick={onClick}>{icon}<span>{label}</span></button>;
+function NavButton({active,onClick,icon,label,disabled=false}:{active:boolean;onClick:()=>void;icon:ReactNode;label:string;disabled?:boolean}) {
+  return <button className={`navButton ${active?"active":""}`} onClick={onClick} disabled={disabled} title={disabled?"Em breve":undefined}>{icon}<span>{label}</span>{disabled&&<small>Em breve</small>}</button>;
 }
 
 function QuickCard({icon,title,text,onClick}:{icon:ReactNode;title:string;text:string;onClick:()=>void}) {
@@ -954,7 +1024,47 @@ function HistoryView({history,onRestore,onClear}:{history:HistoryItem[];onRestor
   );
 }
 
-function SettingsView({health,prefs,setPrefs,refreshHealth}:{health:HealthResponse|null;prefs:Prefs;setPrefs:(x:Prefs)=>void;refreshHealth:()=>void}) {
+function SettingsView({health,prefs,setPrefs,refreshHealth,user,authConfigured,onOpenAuth}:{
+  health:HealthResponse|null;prefs:Prefs;setPrefs:(x:Prefs)=>void;refreshHealth:()=>void;
+  user:User|null;authConfigured:boolean;onOpenAuth:(mode:AuthMode)=>void;
+}) {
+  const [name,setName]=useState(String(user?.user_metadata?.name||""));
+  const [newPassword,setNewPassword]=useState("");
+  const [confirmPassword,setConfirmPassword]=useState("");
+  const [accountMessage,setAccountMessage]=useState("");
+  const [accountError,setAccountError]=useState("");
+  const [accountSaving,setAccountSaving]=useState(false);
+
+  useEffect(()=>setName(String(user?.user_metadata?.name||"")),[user]);
+
+  async function saveName() {
+    if(!user||!authConfigured) return;
+    setAccountSaving(true);setAccountError("");setAccountMessage("");
+    const {error}=await createClient().auth.updateUser({data:{name:name.trim()}});
+    setAccountSaving(false);
+    if(error) setAccountError("Não foi possível salvar o nome agora.");
+    else setAccountMessage("Nome atualizado.");
+  }
+
+  async function changePassword() {
+    setAccountError("");setAccountMessage("");
+    if(newPassword.length<8) { setAccountError("Use uma senha com pelo menos 8 caracteres.");return; }
+    if(newPassword!==confirmPassword) { setAccountError("As senhas não correspondem.");return; }
+    setAccountSaving(true);
+    const {error}=await createClient().auth.updateUser({password:newPassword});
+    setAccountSaving(false);
+    if(error) setAccountError("Não foi possível alterar a senha. Entre novamente e tente outra vez.");
+    else {setNewPassword("");setConfirmPassword("");setAccountMessage("Senha alterada com segurança.");}
+  }
+
+  async function signOut() {
+    setAccountSaving(true);setAccountError("");
+    const {error}=await createClient().auth.signOut();
+    setAccountSaving(false);
+    if(error) setAccountError("Não foi possível sair agora. Tente novamente.");
+    else setAccountMessage("");
+  }
+
   return (
     <div className="viewScroll">
       <div className="sectionHeader"><div><p className="eyebrow">CONFIGURAÇÕES</p><h2>Preferências</h2><p>Defina como a Pepita deve trabalhar por padrão.</p></div><img className="sectionPepita" src="/pepita/documents.png" alt=""/></div>
@@ -979,11 +1089,92 @@ function SettingsView({health,prefs,setPrefs,refreshHealth}:{health:HealthRespon
           <label>Formato padrão<select value={prefs.defaultExport} onChange={e=>setPrefs({...prefs,defaultExport:e.target.value as "csv"|"xlsx"})}><option value="xlsx">XLSX (Excel)</option><option value="csv">CSV</option></select></label>
         </div>
         <div className="panelCard accountPanel">
-          <h3>Conta e planos</h3><p>O MVP atual está sem login. Antes da venda, autenticação, licença e limites precisam ser server-side.</p>
+          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
+          {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
+            <div className="accountGuestActions"><button className="ghostButton" onClick={()=>onOpenAuth("login")}>Entrar</button><button className="primaryButton" onClick={()=>onOpenAuth("signup")}>Criar conta grátis</button></div>
+          ):(
+            <>
+              <label>Nome<input value={name} onChange={event=>setName(event.target.value)} maxLength={80} placeholder="Como você quer ser chamado"/></label>
+              <label>E-mail<input value={user.email||""} readOnly aria-readonly="true"/></label>
+              <button className="ghostButton wide" disabled={accountSaving||name.trim()===String(user.user_metadata?.name||"").trim()} onClick={()=>void saveName()}>{accountSaving?"Salvando…":"Salvar nome"}</button>
+            </>
+          )}
         </div>
+        {user&&<div className="panelCard securityPanel">
+          <h3>Segurança</h3>
+          <p>Sua senha atual nunca é exibida. Para alterá-la, crie uma nova abaixo.</p>
+          <label>Nova senha<input type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={event=>setNewPassword(event.target.value)} placeholder="Mínimo de 8 caracteres"/></label>
+          <label>Confirmar nova senha<input type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} placeholder="Digite a mesma senha"/></label>
+          <button className="primaryButton wide" disabled={accountSaving||!newPassword||!confirmPassword} onClick={()=>void changePassword()}>{accountSaving?"Atualizando…":"Alterar senha"}</button>
+          <button className="dangerLink accountSignOut" disabled={accountSaving} onClick={()=>void signOut()}>Sair da conta</button>
+        </div>}
+        {(accountError||accountMessage)&&<div className={`accountFeedback ${accountError?"error":"success"}`} role={accountError?"alert":"status"}>{accountError||accountMessage}</div>}
       </div>
     </div>
   );
+}
+
+function AuthModal({mode,onMode,onClose}:{mode:AuthMode;onMode:(mode:AuthMode)=>void;onClose:()=>void}) {
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [confirmPassword,setConfirmPassword]=useState("");
+  const [submitting,setSubmitting]=useState(false);
+  const [error,setError]=useState("");
+  const [message,setMessage]=useState("");
+  const title=mode==="login"?"Entre na Pepita":"Crie sua conta grátis";
+
+  useEffect(()=>{
+    const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose();};
+    document.addEventListener("keydown",onKeyDown);
+    return ()=>document.removeEventListener("keydown",onKeyDown);
+  },[onClose]);
+
+  function switchMode(next:AuthMode) {
+    setError("");setMessage("");setPassword("");setConfirmPassword("");onMode(next);
+  }
+
+  async function submit(event:React.FormEvent) {
+    event.preventDefault();setError("");setMessage("");
+    if(!email.trim()||!password) {setError(mode==="login"?"E-mail ou senha não conferem.":"Preencha o e-mail e a senha.");return;}
+    if(mode==="signup"&&password.length<8) {setError("Use uma senha com pelo menos 8 caracteres.");return;}
+    if(mode==="signup"&&password!==confirmPassword) {setError("As senhas não correspondem.");return;}
+    if(!isSupabaseAuthConfigured()) {setError("O login ainda não está configurado neste ambiente.");return;}
+    setSubmitting(true);
+    const supabase=createClient();
+    if(mode==="login") {
+      const {error:authError}=await supabase.auth.signInWithPassword({email:email.trim(),password});
+      setSubmitting(false);
+      if(authError) setError("E-mail ou senha não conferem.");
+      else onClose();
+      return;
+    }
+    const {data,error:authError}=await supabase.auth.signUp({
+      email:email.trim(),password,
+      options:{emailRedirectTo:window.location.origin}
+    });
+    setSubmitting(false);
+    if(authError) {setError("Não foi possível criar a conta. Revise os dados e tente novamente.");return;}
+    if(data.session) onClose();
+    else setMessage("Conta criada. Confira seu e-mail para confirmar o cadastro e depois entre na Pepita.");
+  }
+
+  return <div className="modalBackdrop authBackdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}>
+    <section className="authModal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button className="closeButton" onClick={onClose} aria-label="Fechar"><CloseIcon/></button>
+      <img className="authPepita" src="/pepita/icon-128.png" alt=""/>
+      <h2 id="auth-title">{title}</h2>
+      <p>{mode==="login"?"Continue de onde parou e acesse seu CRM.":"Comece no plano gratuito. Você poderá escolher outro plano depois."}</p>
+      <form className="authForm" onSubmit={event=>void submit(event)}>
+        <label>E-mail<input type="email" autoComplete="email" value={email} onChange={event=>setEmail(event.target.value)} placeholder="voce@empresa.com" autoFocus/></label>
+        <label>Senha<input type="password" autoComplete={mode==="login"?"current-password":"new-password"} value={password} onChange={event=>setPassword(event.target.value)} placeholder={mode==="login"?"Digite sua senha":"Mínimo de 8 caracteres"}/></label>
+        {mode==="signup"&&<label>Confirmar senha<input type="password" autoComplete="new-password" value={confirmPassword} onChange={event=>setConfirmPassword(event.target.value)} placeholder="Digite a senha novamente"/></label>}
+        {error&&<div className="authFeedback error" role="alert">{error}</div>}
+        {message&&<div className="authFeedback success" role="status">{message}</div>}
+        {!message&&<button className="primaryButton wide authSubmit" disabled={submitting}>{submitting?"Aguarde…":mode==="login"?"Entrar":"Criar conta grátis"}</button>}
+      </form>
+      <div className="authSwitch">{mode==="login"?"Ainda não tem uma conta?":"Já tem uma conta?"}<button onClick={()=>switchMode(mode==="login"?"signup":"login")}>{mode==="login"?"Cadastre-se grátis":"Entrar"}</button></div>
+    </section>
+  </div>;
 }
 
 function StatusLine({label,value,ok}:{label:string;value:string;ok:boolean}) {

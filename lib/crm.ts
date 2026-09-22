@@ -1,7 +1,11 @@
 import { getSql } from "@/lib/db";
 import type { CrmBoard, CrmCard, CrmColumn, CrmComment } from "@/lib/types";
 
-const WORKSPACE="default";
+const DEFAULT_COLUMNS=[
+  ["Prospectar","prospectar"],["Abordar","abordar"],["Em contato","em-contato"],
+  ["Reunião marcada","reuniao-marcada"],["Em negociação","em-negociacao"],
+  ["Fechou","fechou"],["Perdeu","perdeu"]
+] as const;
 
 type Row=Record<string,unknown>;
 
@@ -42,12 +46,27 @@ function mapCard(row:Row,comments:CrmComment[]):CrmCard {
   };
 }
 
-export async function loadCrmBoard():Promise<CrmBoard> {
+export async function ensureCrmWorkspace(workspace:string) {
   const sql=getSql();
+  const params:unknown[]=[workspace];
+  const values=DEFAULT_COLUMNS.map(([name,slug],position)=>{
+    params.push(name,slug,position);
+    return `($1,$${params.length-2},$${params.length-1},$${params.length})`;
+  });
+  await sql.query(`
+    insert into crm_columns (workspace_id,name,slug,position)
+    values ${values.join(",")}
+    on conflict (workspace_id,slug) do nothing
+  `,params);
+}
+
+export async function loadCrmBoard(workspace:string):Promise<CrmBoard> {
+  const sql=getSql();
+  await ensureCrmWorkspace(workspace);
   const [columnRows,cardRows,commentRows]=await Promise.all([
-    sql.query("select id,name,slug,position from crm_columns where workspace_id=$1 order by position,id",[WORKSPACE]),
-    sql.query("select * from crm_cards where workspace_id=$1 order by column_id,position,id",[WORKSPACE]),
-    sql.query("select id,card_id,body,created_at from crm_comments where workspace_id=$1 order by created_at desc",[WORKSPACE])
+    sql.query("select id,name,slug,position from crm_columns where workspace_id=$1 order by position,id",[workspace]),
+    sql.query("select * from crm_cards where workspace_id=$1 order by column_id,position,id",[workspace]),
+    sql.query("select id,card_id,body,created_at from crm_comments where workspace_id=$1 order by created_at desc",[workspace])
   ]);
 
   const commentsByCard=new Map<string,CrmComment[]>();
@@ -72,5 +91,3 @@ export async function loadCrmBoard():Promise<CrmBoard> {
 
   return {columns,totalCards:cardRows.length};
 }
-
-export { WORKSPACE };

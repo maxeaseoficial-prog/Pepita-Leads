@@ -31,10 +31,12 @@ svg{width:20px;height:20px}
     radial-gradient(circle at 80% 8%,rgba(246,197,21,.05),transparent 25%),
     linear-gradient(180deg,#0a0b0d 0%,#07080a 100%);
 }
+.appShell.sidebarCollapsed{grid-template-columns:58px minmax(0,1fr)}
 .sidebar{
   background:rgba(10,12,14,.97);border-right:1px solid var(--border-soft);
   padding:18px 12px;display:flex;flex-direction:column;align-items:center;min-height:0
 }
+.sidebarTop{display:grid;gap:10px;justify-items:center;width:100%}
 .logoBox{width:54px;height:54px;border:1px solid #5c4b08;border-radius:14px;background:#171609;padding:4px;box-shadow:0 0 28px rgba(246,197,21,.08)}
 .logoBox img{width:100%;height:100%;object-fit:cover;border-radius:10px}
 .nav{display:flex;flex-direction:column;gap:8px;width:100%;height:100%;margin-top:22px}
@@ -44,9 +46,19 @@ svg{width:20px;height:20px}
   transition:.18s ease
 }
 .navButton span{font-size:11px;font-weight:600}
+.navButton small{font-size:8px;color:#777c84;font-weight:700}
 .navButton:hover{background:#14171a;color:white}
 .navButton.active{background:#211d08;color:var(--gold);border-color:#40360b;box-shadow:inset 3px 0 0 var(--gold)}
+.navButton:disabled{cursor:not-allowed;opacity:.48}
+.navButton:disabled:hover{background:transparent;color:#afb4bb}
 .navSpacer{flex:1}
+.sidebarToggle{width:34px;height:30px;border:1px solid #30343a;border-radius:9px;background:#15181c;color:#afb4bb;display:grid;place-items:center}
+.sidebarToggle:hover{color:#fff;border-color:#5d500d}
+.sidebarToggle svg{width:17px;height:17px}
+.sidebarCollapsed .logoBox{width:42px;height:42px;border-radius:11px}
+.sidebarCollapsed .navButton{min-height:52px}
+.sidebarCollapsed .navButton span,.sidebarCollapsed .navButton small{display:none}
+.sidebarCollapsed .nav{margin-top:12px}
 .mainArea{min-width:0;height:100vh;display:grid;grid-template-rows:76px minmax(0,1fr)}
 .topbar{
   display:flex;align-items:center;justify-content:space-between;padding:12px 24px;
@@ -56,6 +68,15 @@ svg{width:20px;height:20px}
 .brand>img{width:46px;height:46px;object-fit:cover;border-radius:11px;border:1px solid #433807}
 .brandTitle{font-weight:850;font-size:19px;letter-spacing:.05em;display:flex;gap:8px;align-items:center}
 .brand small{display:block;color:#b3b6bc;margin-top:2px}
+.authActions{display:flex;align-items:center;gap:9px;min-width:0}
+.loginButton,.signupButton,.accountButton{min-height:40px;border-radius:999px;padding:0 15px;font-weight:750}
+.loginButton{border:1px solid #43474d;background:#f4f2ed;color:#111}
+.signupButton{border:1px solid #4b5057;background:#1b1d21;color:#f4f2ed}
+.loginButton:hover{background:#fff}.signupButton:hover{border-color:#75620d;background:#22200f}
+.accountButton{max-width:260px;border:1px solid #4b420f;background:#201d0a;color:#f8d64e;display:flex;align-items:center;gap:8px}
+.accountButton span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.accountButton svg{width:17px;height:17px;flex:0 0 auto}
+.authLoading{font-size:11px;color:var(--muted)}
 .chatView{height:100%;position:relative;overflow:hidden}
 .chatScroll{height:100%;overflow:auto;padding:28px 30px 142px;scrollbar-color:#333 transparent}
 .welcome{max-width:920px;margin:0 auto;text-align:center;padding:10px 0 30px}
@@ -206,6 +227,17 @@ svg{width:20px;height:20px}
 .panelCard select,.panelCard input,.modalCard select,.modalCard input{width:100%;border:1px solid #3b4046;background:#1a1d21;color:white;border-radius:8px;padding:9px}
 .accountPanel{border-color:#5a4c0b}
 .accountPanel p{margin:0;color:var(--muted);line-height:1.5}
+.accountPanelHeading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.accountPanelHeading h3{margin-bottom:5px}
+.planBadge{flex:0 0 auto;border:1px solid #5e500d;background:#251f08;color:#f8d64e;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.accountGuestActions{display:flex;gap:8px}.accountGuestActions>*{flex:1}
+.accountNotice{border:1px solid #55470b;border-radius:9px;padding:10px;background:#1d1908;color:#d8ca8b!important;font-size:12px}
+.securityPanel p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.panelCard input[readonly]{color:#aeb3ba;background:#121417;cursor:default}
+.accountSignOut{justify-self:start}
+.accountFeedback{grid-column:1/-1;border-radius:10px;padding:11px 13px;font-size:12px}
+.accountFeedback.error,.authFeedback.error{border:1px solid #703838;background:#2b1416;color:#ffb3b3}
+.accountFeedback.success,.authFeedback.success{border:1px solid #2e6a3d;background:#112619;color:#9be5aa}
 .statusLine{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #272b30;padding:7px 0}
 .statusLine span{color:var(--muted);font-size:12px}
 .statusLine strong{font-size:12px;color:#e8bbba}
@@ -225,6 +257,20 @@ svg{width:20px;height:20px}
 .checks2{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
 .disabled{opacity:.42}
 .formHint{color:#858b94;font-size:11px;margin:0 0 10px}
+.authBackdrop{z-index:80;background:rgba(0,0,0,.8)}
+.authModal{position:relative;width:min(430px,100%);max-height:calc(100dvh - 30px);overflow:auto;border:1px solid #3c4147;border-radius:18px;background:#111316;padding:28px;box-shadow:0 28px 90px rgba(0,0,0,.52);text-align:center}
+.authPepita{width:72px;height:72px;object-fit:cover;border:1px solid #55470b;border-radius:16px;background:#171609}
+.authModal h2{font-size:26px;letter-spacing:-.03em;margin:14px 0 7px}
+.authModal>p{margin:0 auto 21px;max-width:34ch;color:var(--muted);font-size:13px;line-height:1.5}
+.authForm{display:grid;gap:12px;text-align:left}
+.authForm label{display:grid;gap:6px;font-size:12px;color:#d8dbe0}
+.authForm input{width:100%;border:1px solid #3b4046;background:#1a1d21;color:#fff;border-radius:9px;padding:11px 12px;outline:0}
+.authForm input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(246,197,21,.1)}
+.authFeedback{border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45;text-align:left}
+.authSubmit{min-height:44px;margin-top:2px}
+.authSwitch{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:17px;color:var(--muted);font-size:12px}
+.authSwitch button{border:0;background:transparent;color:var(--gold);font-weight:750;padding:3px}
+.authSwitch button:hover{text-decoration:underline;text-underline-offset:3px}
 .detailModal{width:min(920px,100%)}
 .loadingDetail{display:grid;place-items:center;gap:10px;min-height:300px}
 .loadingDetail img{width:100px;height:100px;border-radius:16px}
@@ -361,9 +407,9 @@ svg{width:20px;height:20px}
 }
 @media(max-width:720px){
   body{overflow:auto}
-  .appShell{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 68px;height:100dvh}
+  .appShell,.appShell.sidebarCollapsed{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 68px;height:100dvh}
   .sidebar{grid-row:2;padding:7px 10px;border-right:0;border-top:1px solid var(--border-soft);flex-direction:row;position:relative;z-index:20}
-  .logoBox{display:none}
+  .sidebarTop,.logoBox{display:none}
   .nav{margin:0;flex-direction:row;gap:5px}
   .navSpacer{display:none}
   .navButton{min-height:52px;flex:1}
@@ -372,6 +418,8 @@ svg{width:20px;height:20px}
   .topbar{padding:10px 14px}
   .brand>img{width:40px;height:40px}
   .brand small{display:none}
+  .authActions{gap:6px}.loginButton,.signupButton,.accountButton{min-height:36px;padding:0 10px;font-size:11px}
+  .accountButton span{max-width:105px}
   .chatScroll{padding:18px 14px 132px}
   .composer{bottom:12px;width:calc(100% - 24px);grid-template-columns:minmax(0,1fr)}
   .welcome h1{font-size:30px}
@@ -387,6 +435,7 @@ svg{width:20px;height:20px}
   .formGrid .span2{grid-column:auto}
   .modalBackdrop{padding:8px;align-items:flex-end}
   .modalCard{max-height:94vh;border-radius:18px 18px 8px 8px}
+  .authModal{padding:24px 18px;border-radius:18px 18px 8px 8px}.authSwitch{flex-wrap:wrap}
   .crmHeader{padding:14px;align-items:flex-start;flex-wrap:wrap}
   .crmHeader h1{font-size:22px}
   .crmHeaderActions{display:grid;grid-template-columns:1fr 1fr;width:100%}
@@ -404,6 +453,8 @@ svg{width:20px;height:20px}
 }
 @media(max-width:420px){
   .brandTitle{font-size:16px}
+  .brand>img{display:none}
+  .signupButton{padding:0 9px}.loginButton{padding:0 10px}
   .navButton span{font-size:9px}
   .infoGrid{grid-template-columns:1fr}
   .workingSteps{display:grid}

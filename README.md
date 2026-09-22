@@ -44,6 +44,13 @@ npm run dev
 
 Você precisa de um `SUPABASE_DATABASE_URL` ou `DATABASE_URL` PostgreSQL real.
 
+Para habilitar cadastro e login, configure também a URL e a chave pública do projeto. A chave `service_role` nunca deve ser exposta no navegador:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
 ## Deploy na Vercel
 
 Leia `docs/VERCEL.md`.
