@@ -268,6 +268,11 @@ svg{width:20px;height:20px}
 .authPepita{width:72px;height:72px;object-fit:cover;border:1px solid #55470b;border-radius:16px;background:#171609}
 .authModal h2{font-size:26px;letter-spacing:-.03em;margin:14px 0 7px}
 .authModal>p{margin:0 auto 21px;max-width:34ch;color:var(--muted);font-size:13px;line-height:1.5}
+.googleAuthButton{width:100%;min-height:44px;border:1px solid #4b5057;border-radius:10px;background:#f5f3ee;color:#18191b;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:750}
+.googleAuthButton:hover{background:#fff;border-color:#737981}.googleAuthButton:disabled{cursor:wait;opacity:.58}
+.googleAuthButton svg{width:19px;height:19px;flex:0 0 auto}
+.authDivider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--subtle);font-size:11px}
+.authDivider:before,.authDivider:after{content:"";height:1px;background:var(--border);flex:1}
 .authForm{display:grid;gap:12px;text-align:left}
 .authForm label{display:grid;gap:6px;font-size:12px;color:#d8dbe0}
 .authForm input{width:100%;border:1px solid #3b4046;background:#1a1d21;color:#fff;border-radius:9px;padding:11px 12px;outline:0}
@@ -477,3 +482,4 @@ svg{width:20px;height:20px}
   .appShell,.sidebar,.sidebarReveal{transition:none;animation:none}
   .crmDrawer,.crmSaveState.saving:before,.skeletonColumns .crmColumn>header,.crmSkeletonCard{animation:none}
 }
+.legalPage{min-height:100vh;padding:48px 20px;background:radial-gradient(circle at 50% 0,#211b05 0,transparent 34%),#070809;color:#f7f5ee}.legalCard{width:min(760px,100%);margin:0 auto;padding:42px;border:1px solid #30343a;border-radius:20px;background:#111418;box-shadow:0 24px 70px rgba(0,0,0,.35)}.legalBack{display:inline-flex;margin-bottom:32px;color:#f4c817;text-decoration:none;font-weight:700}.legalEyebrow{margin:0 0 8px;color:#f4c817;font-size:12px;font-weight:800;letter-spacing:.18em}.legalCard h1{margin:0;font-size:clamp(32px,5vw,48px);line-height:1.05}.legalUpdated{margin:12px 0 36px;color:#9298a1}.legalCard h2{margin:28px 0 8px;font-size:19px}.legalCard p{color:#c2c6cc;line-height:1.7}.legalCard a{color:#f4c817}@media(max-width:600px){.legalPage{padding:20px 12px}.legalCard{padding:28px 22px;border-radius:16px}}

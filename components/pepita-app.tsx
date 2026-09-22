@@ -25,6 +25,7 @@ import {
   FileIcon,
   FilterIcon,
   GlobeIcon,
+  GoogleIcon,
   HistoryIcon,
   InstagramIcon,
   KanbanIcon,
@@ -1146,6 +1147,20 @@ function AuthModal({mode,onMode,onClose}:{mode:AuthMode;onMode:(mode:AuthMode)=>
     setError("");setMessage("");setPassword("");setConfirmPassword("");onMode(next);
   }
 
+  async function signInWithGoogle() {
+    setError("");setMessage("");
+    if(!isSupabaseAuthConfigured()) {setError("O login ainda não está configurado neste ambiente.");return;}
+    setSubmitting(true);
+    const {error:authError}=await createClient().auth.signInWithOAuth({
+      provider:"google",
+      options:{redirectTo:window.location.origin}
+    });
+    if(authError) {
+      setSubmitting(false);
+      setError("Não foi possível entrar com o Google. Tente novamente.");
+    }
+  }
+
   async function submit(event:React.FormEvent) {
     event.preventDefault();setError("");setMessage("");
     if(!email.trim()||!password) {setError(mode==="login"?"E-mail ou senha não conferem.":"Preencha o e-mail e a senha.");return;}
@@ -1177,6 +1192,8 @@ function AuthModal({mode,onMode,onClose}:{mode:AuthMode;onMode:(mode:AuthMode)=>
       <img className="authPepita" src="/pepita/icon-128.png" alt=""/>
       <h2 id="auth-title">{title}</h2>
       <p>{mode==="login"?"Continue de onde parou e acesse seu CRM.":"Comece no plano gratuito. Você poderá escolher outro plano depois."}</p>
+      <button className="googleAuthButton" type="button" disabled={submitting} onClick={()=>void signInWithGoogle()}><GoogleIcon/><span>Continuar com Google</span></button>
+      <div className="authDivider"><span>ou</span></div>
       <form className="authForm" onSubmit={event=>void submit(event)}>
         <label>E-mail<input type="email" autoComplete="email" value={email} onChange={event=>setEmail(event.target.value)} placeholder="voce@empresa.com" autoFocus/></label>
         <label>Senha<input type="password" autoComplete={mode==="login"?"current-password":"new-password"} value={password} onChange={event=>setPassword(event.target.value)} placeholder={mode==="login"?"Digite sua senha":"Mínimo de 8 caracteres"}/></label>
