@@ -216,6 +216,12 @@ svg{width:20px;height:20px}
 .emptyState p{color:var(--muted)}
 .panelCard{border:1px solid #34383d;background:#121417;border-radius:14px;padding:16px;display:grid;gap:13px}
 .panelCard h3{margin:0;font-size:14px}
+.exportSettingsPanel{grid-column:1/-1}
+.exportSettingsHeading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.exportSettingsHeading p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
+.exportSettingsHeading>span{flex:0 0 auto;border:1px solid #3b4046;background:#171a1e;color:#aeb4bc;border-radius:999px;padding:5px 8px;font-size:10px}
+.settingsDivider{height:1px;background:#2b2f34;margin:2px 0}
+.exportHint{color:var(--muted);font-size:11px;text-align:center}
 .formatGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .formatCard{min-height:100px;border:1px solid #383d43;background:#171a1e;color:white;border-radius:12px;padding:13px;display:grid;grid-template-columns:30px 1fr;grid-template-rows:auto auto;gap:3px 8px;text-align:left}
 .formatCard svg{grid-row:1/3;color:var(--gold)}
@@ -469,6 +475,9 @@ svg{width:20px;height:20px}
   .historyCardMeta{width:100%;grid-template-columns:1fr auto;align-items:center;justify-items:start}
   .historyCardMeta button{justify-self:end}
   .settingsGrid,.detailGrid{grid-template-columns:1fr}
+  .exportSettingsPanel{grid-column:auto}
+  .exportSettingsHeading{display:grid}
+  .exportSettingsHeading>span{justify-self:start}
   .columnsGrid{grid-template-columns:1fr}
   .checks3,.checks2{grid-template-columns:1fr}
   .formGrid{grid-template-columns:1fr}

@@ -21,7 +21,6 @@ import {
   BuildingIcon,
   ChatIcon,
   CloseIcon,
-  ExportIcon,
   FileIcon,
   GlobeIcon,
   GoogleIcon,
@@ -41,15 +40,16 @@ import {
   SidebarIcon
 } from "./icons";
 
-type View = "chat"|"results"|"crm"|"export"|"settings";
+type View = "chat"|"results"|"crm"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
 
-const VIEWS:View[]=["chat","results","crm","export","settings"];
+const VIEWS:View[]=["chat","results","crm","settings"];
 
 function viewFromHash(hash:string):View {
   const value=hash.replace(/^#/,"").toLowerCase();
   if(value==="history") return "results";
+  if(value==="export") return "settings";
   return VIEWS.includes(value as View)?value as View:"chat";
 }
 
@@ -589,8 +589,8 @@ export function PepitaApp() {
         addMessage("assistant","Faça uma busca primeiro. Depois eu consigo exportar os resultados.");
         return;
       }
-      navigate("export");
-      addMessage("assistant","Abri a exportação. Você pode escolher CSV ou XLSX e selecionar as colunas.");
+      navigate("settings");
+      addMessage("assistant","Abri as configurações. A exportação dos resultados fica na seção Exportação.");
       return;
     }
 
@@ -704,7 +704,6 @@ export function PepitaApp() {
           <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
           <NavButton active={view==="results"} onClick={()=>navigate("results")} icon={<ResultsIcon/>} label="Resultados"/>
           <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
-          <NavButton active={view==="export"} onClick={()=>navigate("export")} icon={<ExportIcon/>} label="Exportar"/>
           <NavButton active={false} onClick={()=>{}} icon={<PlansIcon/>} label="Planos" disabled/>
           <div className="navSpacer"/>
           <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
@@ -851,26 +850,21 @@ export function PepitaApp() {
 
         {view==="crm" && <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>}
 
-        {view==="export" && (
-          <ExportView
+        {view==="settings" && (
+          <SettingsView
+            prefs={prefs}
+            setPrefs={updatePrefs}
             results={results}
-            format={exportFormat}
-            setFormat={setExportFormat}
-            selected={exportColumns}
-            setSelected={setExportColumns}
-            done={exportDone}
+            exportFormat={exportFormat}
+            setExportFormat={setExportFormat}
+            exportColumns={exportColumns}
+            setExportColumns={setExportColumns}
+            exportDone={exportDone}
             onExport={()=>{
               if(!results.length){setExportDone("Nenhum resultado para exportar.");return;}
               downloadFile(results,exportFormat,exportColumns);
               setExportDone(`${results.length} empresa(s) exportada(s) em ${exportFormat.toUpperCase()}.`);
             }}
-          />
-        )}
-
-        {view==="settings" && (
-          <SettingsView
-            prefs={prefs}
-            setPrefs={updatePrefs}
             user={authUser}
             authConfigured={isSupabaseAuthConfigured()}
             onOpenAuth={setAuthMode}
@@ -1074,41 +1068,17 @@ function Info({label,value}:{label:string;value:string}) {
   return <div className="infoBox"><span>{label}</span><strong title={value}>{value}</strong></div>;
 }
 
-function ExportView({results,format,setFormat,selected,setSelected,done,onExport}:{
-  results:CompanyLead[];
-  format:"csv"|"xlsx";
-  setFormat:(v:"csv"|"xlsx")=>void;
-  selected:string[];
-  setSelected:(v:string[])=>void;
-  done:string;
-  onExport:()=>void;
-}) {
-  return (
-    <div className="viewScroll">
-      <div className="sectionHeader">
-        <div><p className="eyebrow">EXPORTAÇÃO</p><h2>Exportar resultados</h2><p>Escolha o formato e as colunas que quer levar.</p></div>
-        <img className="sectionPepita" src="/pepita/exporting.png" alt=""/>
-      </div>
-      <div className="panelCard">
-        <h3>Formato</h3>
-        <div className="formatGrid">
-          {(["xlsx","csv"] as const).map(f=><button key={f} className={`formatCard ${format===f?"active":""}`} onClick={()=>setFormat(f)}><FileIcon/><strong>{f.toUpperCase()}</strong><span>{f==="xlsx"?"Arquivo para Excel":"Compatível com todos os sistemas"}</span></button>)}
-        </div>
-        <h3>Colunas</h3>
-        <div className="columnsGrid">
-          {EXPORT_COLUMNS.map(([key,label])=>(
-            <label key={key}><input type="checkbox" checked={selected.includes(key)} onChange={e=>setSelected(e.target.checked?[...selected,key]:selected.filter(x=>x!==key))}/><span>{label}</span></label>
-          ))}
-        </div>
-        <button className="primaryButton wide" onClick={onExport} disabled={!results.length}>Exportar planilha</button>
-        {done && <div className="successBox"><strong>{done}</strong></div>}
-      </div>
-    </div>
-  );
-}
-
-function SettingsView({prefs,setPrefs,user,authConfigured,onOpenAuth}:{
+function SettingsView({
+  prefs,setPrefs,results,exportFormat,setExportFormat,exportColumns,setExportColumns,exportDone,onExport,user,authConfigured,onOpenAuth
+}:{
   prefs:Prefs;setPrefs:(x:Prefs)=>void;
+  results:CompanyLead[];
+  exportFormat:"csv"|"xlsx";
+  setExportFormat:(v:"csv"|"xlsx")=>void;
+  exportColumns:string[];
+  setExportColumns:(v:string[])=>void;
+  exportDone:string;
+  onExport:()=>void;
   user:User|null;authConfigured:boolean;onOpenAuth:(mode:AuthMode)=>void;
 }) {
   const [name,setName]=useState(String(user?.user_metadata?.name||""));
@@ -1159,9 +1129,33 @@ function SettingsView({prefs,setPrefs,user,authConfigured,onOpenAuth}:{
           <label className="checkLine"><input type="checkbox" checked={prefs.hasPhone} onChange={e=>setPrefs({...prefs,hasPhone:e.target.checked})}/>Exigir telefone</label>
           <label className="checkLine"><input type="checkbox" checked={prefs.hasEmail} onChange={e=>setPrefs({...prefs,hasEmail:e.target.checked})}/>Exigir e-mail</label>
         </div>
-        <div className="panelCard">
-          <h3>Exportação</h3>
-          <label>Formato padrão<select value={prefs.defaultExport} onChange={e=>setPrefs({...prefs,defaultExport:e.target.value as "csv"|"xlsx"})}><option value="xlsx">XLSX (Excel)</option><option value="csv">CSV</option></select></label>
+        <div className="panelCard exportSettingsPanel">
+          <div className="exportSettingsHeading">
+            <div>
+              <h3>Exportação</h3>
+              <p>Configure o padrão e exporte os resultados atuais sem sair das configurações.</p>
+            </div>
+            <span>{results.length} resultado(s) disponível(is)</span>
+          </div>
+          <label>Formato padrão<select value={prefs.defaultExport} onChange={e=>{
+            const next=e.target.value as "csv"|"xlsx";
+            setPrefs({...prefs,defaultExport:next});
+            setExportFormat(next);
+          }}><option value="xlsx">XLSX (Excel)</option><option value="csv">CSV</option></select></label>
+          <div className="settingsDivider"/>
+          <h3>Exportar resultados atuais</h3>
+          <div className="formatGrid">
+            {(["xlsx","csv"] as const).map(format=><button key={format} type="button" className={`formatCard ${exportFormat===format?"active":""}`} onClick={()=>setExportFormat(format)}><FileIcon/><strong>{format.toUpperCase()}</strong><span>{format==="xlsx"?"Arquivo para Excel":"Compatível com todos os sistemas"}</span></button>)}
+          </div>
+          <h3>Colunas</h3>
+          <div className="columnsGrid">
+            {EXPORT_COLUMNS.map(([key,label])=>(
+              <label key={key}><input type="checkbox" checked={exportColumns.includes(key)} onChange={e=>setExportColumns(e.target.checked?[...exportColumns,key]:exportColumns.filter(x=>x!==key))}/><span>{label}</span></label>
+            ))}
+          </div>
+          <button className="primaryButton wide" onClick={onExport} disabled={!results.length}>Exportar planilha</button>
+          {!results.length&&<span className="exportHint">Faça uma busca para liberar a exportação.</span>}
+          {exportDone&&<div className="successBox"><strong>{exportDone}</strong></div>}
         </div>
         <div className="panelCard accountPanel">
           <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano gratuito</span></div>
