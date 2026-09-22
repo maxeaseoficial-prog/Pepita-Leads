@@ -390,9 +390,9 @@ svg{width:20px;height:20px}
   .formGrid .span2{grid-column:auto}
   .modalBackdrop{padding:8px;align-items:flex-end}
   .modalCard{max-height:94vh;border-radius:18px 18px 8px 8px}
-  .crmHeader{padding:14px;align-items:flex-start}
+  .crmHeader{padding:14px;align-items:flex-start;flex-wrap:wrap}
   .crmHeader h1{font-size:22px}
-  .crmHeaderActions{display:grid;grid-template-columns:1fr 1fr}
+  .crmHeaderActions{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .crmSaveState{grid-column:1/-1;text-align:right;margin:0}
   .crmHeaderActions button{justify-content:center;padding:9px 10px;font-size:11px}
   .crmBoardScroller{padding:12px 14px 18px;scroll-snap-type:x proximity}
@@ -407,7 +407,7 @@ svg{width:20px;height:20px}
 }
 @media(max-width:420px){
   .brandTitle{font-size:16px}
-  .statusBadge{padding:7px 9px}
+  .statusBadge{width:34px;height:34px;padding:0;justify-content:center;font-size:0;flex:0 0 34px}
   .navButton span{font-size:9px}
   .infoGrid{grid-template-columns:1fr}
   .workingSteps{display:grid}
