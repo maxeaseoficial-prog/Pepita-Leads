@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-22T00:58:27.311Z",
+  "title": "Design System: Pepita SaaS",
+  "extensions": {
+    "colorMeta": {
+      "bg": {
+        "role": "neutral",
+        "displayName": "bg",
+        "tonalRamp": [
+          "oklch(15% 0.0048 262.80)",
+          "oklch(26% 0.0048 262.80)",
+          "oklch(38% 0.0048 262.80)",
+          "oklch(49% 0.0048 262.80)",
+          "oklch(61% 0.0048 262.80)",
+          "oklch(72% 0.0048 262.80)",
+          "oklch(84% 0.0048 262.80)",
+          "oklch(95% 0.0048 262.80)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "surface",
+        "tonalRamp": [
+          "oklch(15% 0.0069 258.37)",
+          "oklch(26% 0.0069 258.37)",
+          "oklch(38% 0.0069 258.37)",
+          "oklch(49% 0.0069 258.37)",
+          "oklch(61% 0.0069 258.37)",
+          "oklch(72% 0.0069 258.37)",
+          "oklch(84% 0.0069 258.37)",
+          "oklch(95% 0.0069 258.37)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "border",
+        "tonalRamp": [
+          "oklch(15% 0.0121 258.37)",
+          "oklch(26% 0.0121 258.37)",
+          "oklch(38% 0.0121 258.37)",
+          "oklch(49% 0.0121 258.37)",
+          "oklch(61% 0.0121 258.37)",
+          "oklch(72% 0.0121 258.37)",
+          "oklch(84% 0.0121 258.37)",
+          "oklch(95% 0.0121 258.37)"
+        ]
+      },
+      "border-soft": {
+        "role": "neutral",
+        "displayName": "border-soft",
+        "tonalRamp": [
+          "oklch(15% 0.0110 254.03)",
+          "oklch(26% 0.0110 254.03)",
+          "oklch(38% 0.0110 254.03)",
+          "oklch(49% 0.0110 254.03)",
+          "oklch(61% 0.0110 254.03)",
+          "oklch(72% 0.0110 254.03)",
+          "oklch(84% 0.0110 254.03)",
+          "oklch(95% 0.0110 254.03)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "text",
+        "tonalRamp": [
+          "oklch(15% 0.0070 88.64)",
+          "oklch(26% 0.0070 88.64)",
+          "oklch(38% 0.0070 88.64)",
+          "oklch(49% 0.0070 88.64)",
+          "oklch(61% 0.0070 88.64)",
+          "oklch(72% 0.0070 88.64)",
+          "oklch(84% 0.0070 88.64)",
+          "oklch(95% 0.0070 88.64)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "muted",
+        "tonalRamp": [
+          "oklch(15% 0.0142 262.37)",
+          "oklch(26% 0.0142 262.37)",
+          "oklch(38% 0.0142 262.37)",
+          "oklch(49% 0.0142 262.37)",
+          "oklch(61% 0.0142 262.37)",
+          "oklch(72% 0.0142 262.37)",
+          "oklch(84% 0.0142 262.37)",
+          "oklch(95% 0.0142 262.37)"
+        ]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "gold",
+        "tonalRamp": [
+          "oklch(15% 0.1692 90.12)",
+          "oklch(26% 0.1692 90.12)",
+          "oklch(38% 0.1692 90.12)",
+          "oklch(49% 0.1692 90.12)",
+          "oklch(61% 0.1692 90.12)",
+          "oklch(72% 0.1692 90.12)",
+          "oklch(84% 0.1692 90.12)",
+          "oklch(95% 0.1692 90.12)"
+        ]
+      },
+      "selected-bg": {
+        "role": "primary",
+        "displayName": "selected-bg",
+        "tonalRamp": [
+          "oklch(15% 0.0353 98.73)",
+          "oklch(26% 0.0353 98.73)",
+          "oklch(38% 0.0353 98.73)",
+          "oklch(49% 0.0353 98.73)",
+          "oklch(61% 0.0353 98.73)",
+          "oklch(72% 0.0353 98.73)",
+          "oklch(84% 0.0353 98.73)",
+          "oklch(95% 0.0353 98.73)"
+        ]
+      },
+      "field-bg": {
+        "role": "neutral",
+        "displayName": "field-bg",
+        "tonalRamp": [
+          "oklch(15% 0.0090 255.61)",
+          "oklch(26% 0.0090 255.61)",
+          "oklch(38% 0.0090 255.61)",
+          "oklch(49% 0.0090 255.61)",
+          "oklch(61% 0.0090 255.61)",
+          "oklch(72% 0.0090 255.61)",
+          "oklch(84% 0.0090 255.61)",
+          "oklch(95% 0.0090 255.61)"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "field-border",
+        "tonalRamp": [
+          "oklch(15% 0.0124 252.97)",
+          "oklch(26% 0.0124 252.97)",
+          "oklch(38% 0.0124 252.97)",
+          "oklch(49% 0.0124 252.97)",
+          "oklch(61% 0.0124 252.97)",
+          "oklch(72% 0.0124 252.97)",
+          "oklch(84% 0.0124 252.97)",
+          "oklch(95% 0.0124 252.97)"
+        ]
+      },
+      "error-bg": {
+        "role": "neutral",
+        "displayName": "error-bg",
+        "tonalRamp": [
+          "oklch(15% 0.0378 15.00)",
+          "oklch(26% 0.0378 15.00)",
+          "oklch(38% 0.0378 15.00)",
+          "oklch(49% 0.0378 15.00)",
+          "oklch(61% 0.0378 15.00)",
+          "oklch(72% 0.0378 15.00)",
+          "oklch(84% 0.0378 15.00)",
+          "oklch(95% 0.0378 15.00)"
+        ]
+      },
+      "error-border": {
+        "role": "neutral",
+        "displayName": "error-border",
+        "tonalRamp": [
+          "oklch(15% 0.0793 21.08)",
+          "oklch(26% 0.0793 21.08)",
+          "oklch(38% 0.0793 21.08)",
+          "oklch(49% 0.0793 21.08)",
+          "oklch(61% 0.0793 21.08)",
+          "oklch(72% 0.0793 21.08)",
+          "oklch(84% 0.0793 21.08)",
+          "oklch(95% 0.0793 21.08)"
+        ]
+      },
+      "error-text": {
+        "role": "neutral",
+        "displayName": "error-text",
+        "tonalRamp": [
+          "oklch(15% 0.0891 19.11)",
+          "oklch(26% 0.0891 19.11)",
+          "oklch(38% 0.0891 19.11)",
+          "oklch(49% 0.0891 19.11)",
+          "oklch(61% 0.0891 19.11)",
+          "oklch(72% 0.0891 19.11)",
+          "oklch(84% 0.0891 19.11)",
+          "oklch(95% 0.0891 19.11)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Texto de interface",
+        "purpose": "Pilha sans-serif declarada; não implica fonte Inter carregada."
+      },
+      "title": {
+        "displayName": "Título compacto",
+        "purpose": "Colunas e nomes de empresa."
+      },
+      "label": {
+        "displayName": "Rótulo",
+        "purpose": "Campos e controles secundários."
+      }
+    },
+    "shadows": [
+      {
+        "name": "modal",
+        "value": "0 24px 70px rgba(0,0,0,.36)",
+        "purpose": "Sobreposição de modal; --shadow."
+      },
+      {
+        "name": "drawer",
+        "value": "-24px 0 70px rgba(0,0,0,.38)",
+        "purpose": "Separação lateral do painel de trabalho."
+      },
+      {
+        "name": "drag",
+        "value": "0 24px 50px rgba(0,0,0,.45)",
+        "purpose": "Cartão suspenso durante arraste."
+      },
+      {
+        "name": "field-focus",
+        "value": "0 0 0 3px rgba(246,197,21,.09)",
+        "purpose": "Halo de foco nos campos CRM."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control",
+        "value": ".18s ease",
+        "purpose": "Estados de navegação e borda de cartão/coluna."
+      },
+      {
+        "name": "drawer",
+        "value": ".22s cubic-bezier(.16,1,.3,1)",
+        "purpose": "Entrada lateral ou inferior; desativada em movimento reduzido."
+      },
+      {
+        "name": "saving",
+        "value": ".8s ease-in-out infinite alternate",
+        "purpose": "Pulso de salvamento; desativado em movimento reduzido."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-grid",
+        "value": "980px"
+      },
+      {
+        "name": "mobile",
+        "value": "720px"
+      },
+      {
+        "name": "narrow",
+        "value": "420px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ação principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação de salvar no drawer; não há hover próprio no código.",
+      "html": "<button class=\"ds-primary\">Salvar alterações</button>",
+      "css": ".ds-primary{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:16px;border:0;background:var(--gold,#f6c515);color:#111;border-radius:10px;padding:11px 14px;font-weight:850;cursor:pointer}.ds-primary:disabled{opacity:.42;cursor:not-allowed}.ds-primary:focus-visible,.ds-ghost:focus-visible{outline:2px solid var(--gold,#f6c515);outline-offset:2px}"
+    },
+    {
+      "name": "Ação secundária",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Cancelar e criar uma coluna.",
+      "html": "<button class=\"ds-ghost\">Cancelar</button>",
+      "css": ".ds-ghost{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:16px;border:1px solid #3b4046;background:#15181c;color:#e4e7ea;border-radius:10px;padding:9px 12px;cursor:pointer}.ds-ghost:hover{border-color:#66580d}.ds-primary:focus-visible,.ds-ghost:focus-visible{outline:2px solid var(--gold,#f6c515);outline-offset:2px}"
+    },
+    {
+      "name": "Campo CRM",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Campo rotulado dentro do drawer.",
+      "html": "<label class=\"ds-label\">Razão social<input class=\"ds-field\" placeholder=\"Nome da empresa\"></label>",
+      "css": ".ds-label{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;display:grid;gap:6px;color:#b8bdc4;font-size:11px}.ds-field{font:inherit;font-size:16px;border:1px solid #383d43;background:#191c20;color:var(--text,#f5f3ee);border-radius:9px;padding:10px;outline:0}.ds-field:focus{border-color:var(--gold,#f6c515);box-shadow:0 0 0 3px rgba(246,197,21,.09)}.ds-field:focus-visible{outline:2px solid var(--gold,#f6c515);outline-offset:2px}"
+    },
+    {
+      "name": "Navegação",
+      "kind": "nav",
+      "description": "Estado ativo com ícone autoral e indicador lateral.",
+      "html": "<button class=\"ds-nav\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"5\" height=\"16\" rx=\"1.5\"/><rect x=\"10\" y=\"4\" width=\"5\" height=\"10\" rx=\"1.5\"/><rect x=\"17\" y=\"4\" width=\"4\" height=\"13\" rx=\"1.5\"/></svg><span>CRM</span></button>",
+      "css": ".ds-nav{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;min-height:68px;width:68px;border:1px solid #40360b;background:#211d08;color:var(--gold,#f6c515);border-radius:13px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;transition:.18s ease;box-shadow:inset 3px 0 0 var(--gold,#f6c515);cursor:pointer}.ds-nav span{font-size:11px;font-weight:600}.ds-nav svg{width:20px;height:20px}"
+    },
+    {
+      "name": "Origem",
+      "kind": "chip",
+      "description": "Origem da busca; chip informativo sem interação.",
+      "html": "<span class=\"ds-origin\">Busca Pepita</span>",
+      "css": ".ds-origin{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:9px;font-weight:750;border-radius:999px;padding:3px 6px;border:1px solid #574a0c;background:#211d08;color:#f3d55e}"
+    },
+    {
+      "name": "Cartão CRM",
+      "kind": "card",
+      "refersTo": "crm-card",
+      "description": "Superfície compacta com botão de abertura independente do arraste.",
+      "html": "<article class=\"ds-card\"><span class=\"ds-card-origin\">Manual</span><button class=\"ds-card-main\"><strong>Nome da empresa</strong><span>Local não informado</span></button></article>",
+      "css": ".ds-card{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;width:246px;border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;transition:border-color .18s ease,opacity .18s ease}.ds-card:hover{border-color:#5f5319}.ds-card-origin{display:inline-block;margin-bottom:6px;font-size:9px;font-weight:750;border-radius:999px;padding:3px 6px;border:1px solid #3b4046;color:#aeb4bc}.ds-card-main{font-family:inherit;width:100%;padding:0;border:0;background:transparent;color:var(--text,#f5f3ee);text-align:left;display:grid;gap:5px;cursor:pointer}.ds-card-main strong{font-size:13px;line-height:1.3}.ds-card-main span{color:#9aa0a8;font-size:11px}.ds-card-main:focus-visible{outline:2px solid var(--gold,#f6c515);outline-offset:2px}"
+    },
+    {
+      "name": "Coluna vazia",
+      "kind": "custom",
+      "description": "Convite direto de criação dentro do quadro.",
+      "html": "<button class=\"ds-empty\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg><span>Adicionar a primeira empresa</span></button>",
+      "css": ".ds-empty{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;width:266px;min-height:92px;border:1px dashed #343940;border-radius:10px;background:transparent;color:#777e87;display:grid;place-items:center;align-content:center;gap:7px;font-size:11px;cursor:pointer}.ds-empty svg{width:17px;height:17px}.ds-empty:hover{border-color:#675a14;color:var(--gold,#f6c515);background:#171507}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Sala de controle comercial Pepita",
+    "overview": "Pepita mantém a identidade existente em grafite, preto e ouro. O chat é o núcleo da prospecção, os resultados têm superfície própria e o dossiê concentra os detalhes da empresa. O CRM prolonga esse trabalho com colunas legíveis e controles familiares, dentro da mesma navegação.\n\nA interface é compacta, de texto primeiro, com superfícies delimitadas e ícones SVG autorais. A personagem pixel art continua como identidade no cabeçalho e apoio a estados e transições; no CRM aparece no erro de carregamento e no convite de importação dos resultados, sem ocupar os cartões operacionais.",
+    "keyCharacteristics": [
+      "Grafite e preto como base; ouro nas ações e seleções.",
+      "Navegação persistente e áreas de trabalho com rolagem própria.",
+      "Hierarquia compacta, bordas discretas e profundidade concentrada em sobreposições.",
+      "Texto direto em português e mascote em apoio ao estado."
+    ],
+    "rules": [
+      {
+        "name": "The Ouro de Ação Rule",
+        "body": "O ouro distingue ação, seleção e foco; as superfícies de trabalho continuam escuras.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rolagem Contida Rule",
+        "body": "O quadro pode rolar horizontalmente dentro de sua área; a estrutura do produto permanece dentro da viewport.",
+        "section": "layout"
+      },
+      {
+        "name": "The Plano de Trabalho Rule",
+        "body": "Bordas e tom estruturam os cartões do CRM; a elevação forte acompanha uma sobreposição ou arraste.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** preservar grafite, preto e ouro e a personagem pixel art existente.",
+      "**Do** usar texto direto em português, ícones SVG e ações de criação nos vazios.",
+      "**Do** manter a rolagem horizontal do Kanban dentro do quadro.",
+      "**Do** conservar foco visível e redução de movimento nas interações do CRM."
+    ],
+    "donts": [
+      "**Don't** substituir a identidade por uma aparência genérica de “AI SaaS”.",
+      "**Don't** usar emojis aleatórios como ícones da interface.",
+      "**Don't** preencher o CRM vazio com empresas ou atividades inventadas.",
+      "**Don't** transformar o mascote em decoração repetida dentro dos cartões."
+    ]
+  }
+}
