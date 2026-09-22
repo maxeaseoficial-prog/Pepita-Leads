@@ -40,11 +40,11 @@ import {
   SidebarIcon
 } from "./icons";
 
-type View = "chat"|"results"|"crm"|"settings";
+type View = "chat"|"results"|"crm"|"plans"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
 
-const VIEWS:View[]=["chat","results","crm","settings"];
+const VIEWS:View[]=["chat","results","crm","plans","settings"];
 
 function viewFromHash(hash:string):View {
   const value=hash.replace(/^#/,"").toLowerCase();
@@ -709,7 +709,7 @@ export function PepitaApp() {
           <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
           <NavButton active={view==="results"} onClick={()=>navigate("results")} icon={<ResultsIcon/>} label="Resultados"/>
           <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
-          <NavButton active={false} onClick={()=>{}} icon={<PlansIcon/>} label="Planos" disabled/>
+          <NavButton active={view==="plans"} onClick={()=>navigate("plans")} icon={<PlansIcon/>} label="Planos"/>
           <div className="navSpacer"/>
           <NavButton active={view==="settings"} onClick={()=>navigate("settings")} icon={<SettingsIcon/>} label="Configurações"/>
         </nav>
@@ -854,6 +854,7 @@ export function PepitaApp() {
         )}
 
         {view==="crm" && <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>}
+        {view==="plans" && <PlansView/>}
 
         {view==="settings" && (
           <SettingsView
@@ -1071,6 +1072,120 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
 
 function Info({label,value}:{label:string;value:string}) {
   return <div className="infoBox"><span>{label}</span><strong title={value}>{value}</strong></div>;
+}
+
+function PlansView() {
+  const commonFeatures=[
+    "CRM completo",
+    "CNPJ e dados PJ",
+    "Sócios",
+    "Telefone e e-mail disponíveis",
+    "Porte, capital e tempo de empresa",
+    "Potencial Pepita",
+    "Filtros avançados",
+    "Histórico de pesquisas",
+    "Exportação CSV/XLSX"
+  ];
+
+  const plans=[
+    {
+      id:"free",
+      name:"Grátis",
+      price:"0",
+      suffix:"para sempre",
+      description:"Experimente a Pepita e descubra o poder da prospecção inteligente.",
+      highlights:["3 pesquisas","Até 20 empresas por pesquisa","Até 60 empresas"],
+      button:"Plano atual",
+      popular:false
+    },
+    {
+      id:"basic",
+      name:"Basic",
+      price:"29,90",
+      suffix:"/mês",
+      description:"Para quem está começando a prospectar todos os meses.",
+      highlights:["30 pesquisas por mês","Até 20 empresas por pesquisa","Até 600 empresas por mês"],
+      button:"Assinar Basic",
+      popular:true
+    },
+    {
+      id:"unlimited",
+      name:"Unlimited",
+      price:"99,90",
+      suffix:"/mês",
+      description:"Para quem usa prospecção como parte da operação.",
+      highlights:["Pesquisas ilimitadas*","Até 20 empresas por pesquisa","Resultados ilimitados*"],
+      button:"Assinar Unlimited",
+      popular:false
+    }
+  ];
+
+  return (
+    <div className="viewScroll plansView">
+      <section className="plansHero">
+        <p className="eyebrow">PLANOS PEPITA</p>
+        <h2>Escolha o plano ideal para o <span>seu momento</span></h2>
+        <p>Todos os planos incluem os recursos da Pepita. A diferença está no volume de pesquisas e resultados.</p>
+      </section>
+
+      <div className="plansFeatureStrip" aria-label="Recursos inclusos">
+        <span>CRM completo</span>
+        <span>Resultados detalhados</span>
+        <span>Exportação de planilhas</span>
+        <span>Filtros avançados</span>
+        <span>Dados empresariais</span>
+        <span>Histórico de pesquisas</span>
+      </div>
+
+      <section className="plansGrid">
+        {plans.map(plan=>(
+          <article className={`planCard ${plan.popular?"popular":""}`} key={plan.id}>
+            {plan.popular&&<div className="popularBadge">Mais popular</div>}
+            <div className="planCardHeader">
+              <h3>{plan.name}</h3>
+              <p>{plan.description}</p>
+            </div>
+
+            <div className="planPrice">
+              <span>R$</span>
+              <strong>{plan.price}</strong>
+              <small>{plan.suffix}</small>
+            </div>
+
+            <button
+              type="button"
+              className={`planButton ${plan.popular?"primary":""} ${plan.id==="free"?"current":""}`}
+              disabled
+              title={plan.id==="free"?"Plano atual":"Assinaturas serão liberadas com a integração da Stripe"}
+            >
+              {plan.button}
+            </button>
+
+            <div className="planDivider"/>
+
+            <ul className="planHighlights">
+              {plan.highlights.map(item=><li key={item}>{item}</li>)}
+            </ul>
+
+            <div className="planResources">
+              <span>Todos os recursos da Pepita</span>
+              <ul>
+                {commonFeatures.map(item=><li key={item}>{item}</li>)}
+              </ul>
+            </div>
+
+            <div className="planFooterNote">
+              {plan.id==="free"&&<><strong>Comece sem custo</strong><span>Conheça a plataforma antes de decidir.</span></>}
+              {plan.id==="basic"&&<><strong>Mais resultados, mais oportunidades</strong><span>Ideal para profissionais e pequenas equipes.</span></>}
+              {plan.id==="unlimited"&&<><strong>Sem limites para crescer</strong><span>Para operações com prospecção recorrente.</span></>}
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <p className="plansFairUse">*Uso ilimitado sujeito à política de uso justo e mecanismos de proteção contra abuso e automação excessiva.</p>
+    </div>
+  );
 }
 
 function SettingsView({
