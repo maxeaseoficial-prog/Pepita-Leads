@@ -127,21 +127,34 @@ export async function POST(request:Request) {
       await sql.query("update crm_cards set updated_at=now() where id=$1 and workspace_id=$2",[cardId,WORKSPACE]);
     } else if(action==="reorder-columns") {
       const columnIds=Array.isArray(body.columnIds)?body.columnIds.map(value=>text(value,40)).filter(Boolean):[];
-      await sql.query(`
-        update crm_columns c set position=x.position
-        from jsonb_to_recordset($2::jsonb) as x(id uuid,position integer)
-        where c.id=x.id and c.workspace_id=$1
-      `,[WORKSPACE,JSON.stringify(columnIds.map((id,position)=>({id,position})))]);
+      if(columnIds.length) {
+        const params:unknown[]=[WORKSPACE];
+        const values=columnIds.map((id,position)=>{
+          params.push(id,position);
+          return `($${params.length-1}::uuid,$${params.length}::integer)`;
+        });
+        await sql.query(`
+          update crm_columns c set position=x.position
+          from (values ${values.join(",")}) as x(id,position)
+          where c.id=x.id and c.workspace_id=$1
+        `,params);
+      }
     } else if(action==="move-card") {
       const columns=Array.isArray(body.columns)?body.columns as Array<{id?:unknown;cardIds?:unknown}>:[];
       const positions=columns.flatMap(column=>Array.isArray(column.cardIds)?column.cardIds.map((cardId,position)=>({
         id:text(cardId,40),columnId:text(column.id,40),position
       })):[]).filter(item=>item.id&&item.columnId);
+      if(!positions.length) return error("Não há cartões para mover.");
+      const params:unknown[]=[WORKSPACE];
+      const values=positions.map(item=>{
+        params.push(item.id,item.columnId,item.position);
+        return `($${params.length-2}::uuid,$${params.length-1}::uuid,$${params.length}::integer)`;
+      });
       await sql.query(`
         update crm_cards c set column_id=x.column_id,position=x.position
-        from jsonb_to_recordset($2::jsonb) as x(id uuid,column_id uuid,position integer)
+        from (values ${values.join(",")}) as x(id,column_id,position)
         where c.id=x.id and c.workspace_id=$1
-      `,[WORKSPACE,JSON.stringify(positions.map(item=>({id:item.id,column_id:item.columnId,position:item.position})))]);
+      `,params);
     } else if(action==="delete-card") {
       const cardId=text(body.cardId,40);
       await sql.query("delete from crm_cards where id=$1 and workspace_id=$2",[cardId,WORKSPACE]);

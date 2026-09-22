@@ -242,8 +242,9 @@ function SortableColumn({column,onCard,onAdd}:{column:CrmColumn;onCard:(id:strin
 
 function SortableCrmCard({card,onOpen}:{card:CrmCard;onOpen:()=>void}) {
   const {attributes,listeners,setNodeRef,transform,transition,isDragging}=useSortable({id:card.id,data:{type:"card"}});
-  return <article ref={setNodeRef} style={{transform:CSS.Transform.toString(transform),transition}} className={`crmCard ${isDragging?"dragging":""}`}>
-    <div className="crmCardTop"><span className={`leadOrigin ${card.source}`}>{card.source==="search"?"Busca Pepita":"Manual"}</span><button className="dragHandle" aria-label={`Mover ${card.tradeName||card.companyName}`} {...attributes} {...listeners}><DragIcon/></button></div>
+  const {onPointerDown,...keyboardListeners}=listeners||{};
+  return <article ref={setNodeRef} style={{transform:CSS.Transform.toString(transform),transition}} className={`crmCard ${isDragging?"dragging":""}`} onPointerDown={event=>onPointerDown?.(event)}>
+    <div className="crmCardTop"><span className={`leadOrigin ${card.source}`}>{card.source==="search"?"Busca Pepita":"Manual"}</span><button className="dragHandle" aria-label={`Mover ${card.tradeName||card.companyName}`} {...attributes} {...keyboardListeners}><DragIcon/></button></div>
     <button className="crmCardMain" onClick={onOpen}>
       <strong>{card.tradeName||card.companyName}</strong>
       {card.tradeName&&<small>{card.companyName}</small>}

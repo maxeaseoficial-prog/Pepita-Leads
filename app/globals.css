@@ -278,9 +278,9 @@ svg{width:20px;height:20px}
 .dragHandle:focus-visible,.columnAdd:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .dragHandle svg,.columnAdd svg{width:17px;height:17px}
 .crmCardList{min-height:110px;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:8px;scrollbar-color:#34383d transparent}
-.crmCard{border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;transition:border-color .18s ease,opacity .18s ease}
+.crmCard{border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;transition:border-color .18s ease,opacity .18s ease;cursor:grab;touch-action:manipulation}
 .crmCard:hover{border-color:#5f5319}
-.crmCard.dragging{opacity:.28}
+.crmCard.dragging{opacity:.28;cursor:grabbing}
 .crmCardOverlay{width:270px;transform:rotate(1.5deg);border-color:var(--gold);box-shadow:0 24px 50px rgba(0,0,0,.45)}
 .crmCardTop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .leadOrigin{font-size:9px;font-weight:750;border-radius:999px;padding:3px 6px;border:1px solid #3b4046;color:#aeb4bc}
