@@ -78,11 +78,30 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
   useEffect(()=>{ void reload(); },[refreshKey]);
   useEffect(()=>{
     if(!selectedId&&!createColumnId) return;
-    const close=(event:KeyboardEvent)=>{
-      if(event.key==="Escape") { setSelectedId(null);setCreateColumnId(null); }
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const background=Array.from(document.querySelectorAll<HTMLElement>(".crmView > :not(.crmDrawerBackdrop)"));
+    background.forEach(element=>{ element.inert=true; });
+    const panel=document.querySelector<HTMLElement>(".crmDrawer");
+    const focusable=()=>Array.from(panel?.querySelectorAll<HTMLElement>("button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])")||[]).filter(element=>element.offsetParent!==null);
+    window.requestAnimationFrame(()=>{
+      const preferred=panel?.querySelector<HTMLElement>("[autofocus],input:not([disabled]),[role='tab'][aria-selected='true'],button:not([disabled])");
+      preferred?.focus();
+    });
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==="Escape") { setSelectedId(null);setCreateColumnId(null);return; }
+      if(event.key!=="Tab") return;
+      const items=focusable();
+      if(!items.length) return;
+      const first=items[0];const last=items[items.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     };
-    document.addEventListener("keydown",close);
-    return ()=>document.removeEventListener("keydown",close);
+    document.addEventListener("keydown",onKeyDown);
+    return ()=>{
+      document.removeEventListener("keydown",onKeyDown);
+      background.forEach(element=>{ element.inert=false; });
+      previous?.focus();
+    };
   },[selectedId,createColumnId]);
 
   async function reload() {
@@ -92,14 +111,15 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
     finally { setLoading(false); }
   }
 
-  async function mutate(payload:Record<string,unknown>,optimistic?:CrmBoardType) {
+  async function mutate(payload:Record<string,unknown>,optimistic?:CrmBoardType):Promise<boolean> {
     const previous=board;
     if(optimistic) setBoard(optimistic);
     setSaving(true);setError("");
-    try { setBoard(await api(payload)); }
+    try { setBoard(await api(payload));return true; }
     catch(reason) {
       if(previous) setBoard(previous);
       setError(reason instanceof Error?reason.message:"Não foi possível salvar a alteração.");
+      return false;
     } finally { setSaving(false); }
   }
 
@@ -150,8 +170,8 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
 
   async function createColumn() {
     if(!newColumn.trim()) return;
-    await mutate({action:"create-column",name:newColumn});
-    setNewColumn("");setAddingColumn(false);
+    const saved=await mutate({action:"create-column",name:newColumn});
+    if(saved){setNewColumn("");setAddingColumn(false);}
   }
 
   if(loading) return <CrmSkeleton/>;
@@ -165,7 +185,7 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
           <p>{board.totalCards} {board.totalCards===1?"empresa em acompanhamento":"empresas em acompanhamento"}</p>
         </div>
         <div className="crmHeaderActions">
-          <span className={`crmSaveState ${saving?"saving":""}`}>{saving?"Salvando…":"Tudo salvo"}</span>
+          <span className={`crmSaveState ${saving?"saving":error?"failed":""}`}>{saving?"Salvando…":error?"Alteração não salva":"Tudo salvo"}</span>
           <button className="ghostButton" onClick={()=>setAddingColumn(true)}><PlusIcon/> Nova coluna</button>
           <button className="primaryButton" onClick={()=>setCreateColumnId(board.columns[0]?.id||null)}><PlusIcon/> Novo card</button>
         </div>
@@ -194,9 +214,9 @@ export function CrmBoard({refreshKey=0}:{refreshKey?:number}) {
       </DndContext>
 
       {createColumnId&&<CreateCardPanel columns={board.columns} initialColumnId={createColumnId} saving={saving} onClose={()=>setCreateColumnId(null)} onCreate={async(columnId,form)=>{
-        await mutate({action:"create-card",columnId,...form});setCreateColumnId(null);
+        const saved=await mutate({action:"create-card",columnId,...form});if(saved)setCreateColumnId(null);return saved;
       }}/>} 
-      {selected&&<CardDrawer card={selected} saving={saving} onClose={()=>setSelectedId(null)} onSave={async form=>{await mutate({action:"update-card",cardId:selected.id,...form});}} onComment={async comment=>{await mutate({action:"add-comment",cardId:selected.id,comment});}} onDelete={async()=>{await mutate({action:"delete-card",cardId:selected.id});setSelectedId(null);}}/>}
+      {selected&&<CardDrawer card={selected} saving={saving} onClose={()=>setSelectedId(null)} onSave={async form=>mutate({action:"update-card",cardId:selected.id,...form})} onComment={async comment=>mutate({action:"add-comment",cardId:selected.id,comment})} onDelete={async()=>{const removed=await mutate({action:"delete-card",cardId:selected.id});if(removed)setSelectedId(null);return removed;}}/>}
     </section>
   );
 }
@@ -241,7 +261,7 @@ function CrmCardContent({card}:{card:CrmCard}) {
   return <><div className="crmCardTop"><span className={`leadOrigin ${card.source}`}>{card.source==="search"?"Busca Pepita":"Manual"}</span><DragIcon/></div><div className="crmCardMain"><strong>{card.tradeName||card.companyName}</strong><span className="crmCardPlace"><MapPinIcon/>{[card.city,card.state].filter(Boolean).join(" / ")||"Local não informado"}</span></div></>;
 }
 
-function CreateCardPanel({columns,initialColumnId,saving,onClose,onCreate}:{columns:CrmColumn[];initialColumnId:string;saving:boolean;onClose:()=>void;onCreate:(columnId:string,form:CardForm)=>Promise<void>}) {
+function CreateCardPanel({columns,initialColumnId,saving,onClose,onCreate}:{columns:CrmColumn[];initialColumnId:string;saving:boolean;onClose:()=>void;onCreate:(columnId:string,form:CardForm)=>Promise<boolean>}) {
   const [columnId,setColumnId]=useState(initialColumnId);
   const [form,setForm]=useState<CardForm>(EMPTY_FORM);
   return <div className="crmDrawerBackdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><aside className="crmDrawer" role="dialog" aria-modal="true" aria-labelledby="create-card-title">
@@ -254,7 +274,7 @@ function CreateCardPanel({columns,initialColumnId,saving,onClose,onCreate}:{colu
   </aside></div>;
 }
 
-function CardDrawer({card,saving,onClose,onSave,onComment,onDelete}:{card:CrmCard;saving:boolean;onClose:()=>void;onSave:(form:CardForm)=>Promise<void>;onComment:(comment:string)=>Promise<void>;onDelete:()=>Promise<void>}) {
+function CardDrawer({card,saving,onClose,onSave,onComment,onDelete}:{card:CrmCard;saving:boolean;onClose:()=>void;onSave:(form:CardForm)=>Promise<boolean>;onComment:(comment:string)=>Promise<boolean>;onDelete:()=>Promise<boolean>}) {
   const [tab,setTab]=useState<"details"|"notes"|"comments">("details");
   const [form,setForm]=useState(()=>cardForm(card));
   const [comment,setComment]=useState("");
@@ -270,7 +290,7 @@ function CardDrawer({card,saving,onClose,onSave,onComment,onDelete}:{card:CrmCar
     {tab==="details"&&<form className="crmForm" onSubmit={event=>{event.preventDefault();void onSave(form);}}><CardFields form={form} setForm={setForm}/><button className="primaryButton wide" disabled={saving}>{saving?"Salvando…":"Salvar alterações"}</button></form>}
     {tab==="notes"&&<form className="crmNotes" onSubmit={event=>{event.preventDefault();void onSave(form);}}><label htmlFor="crm-notes">Observações comerciais</label><textarea id="crm-notes" value={form.notes} onChange={event=>setForm({...form,notes:event.target.value})} placeholder="Registre contexto, próximos passos e informações importantes…"/><p>Estas observações ficam vinculadas à empresa.</p><button className="primaryButton" disabled={saving}>{saving?"Salvando…":"Salvar observações"}</button></form>}
     {tab==="comments"&&<div className="crmComments">
-      <form onSubmit={event=>{event.preventDefault();if(comment.trim()){void onComment(comment).then(()=>setComment(""));}}}><label htmlFor="crm-comment">Registrar atividade</label><textarea id="crm-comment" value={comment} onChange={event=>setComment(event.target.value)} placeholder="Ex.: Liguei, enviei a proposta e combinei retorno para sexta-feira."/><button className="primaryButton" disabled={saving||!comment.trim()}>Adicionar comentário</button></form>
+      <form onSubmit={event=>{event.preventDefault();if(comment.trim()){void onComment(comment).then(saved=>{if(saved)setComment("");});}}}><label htmlFor="crm-comment">Registrar atividade</label><textarea id="crm-comment" value={comment} onChange={event=>setComment(event.target.value)} placeholder="Ex.: Liguei, enviei a proposta e combinei retorno para sexta-feira."/><button className="primaryButton" disabled={saving||!comment.trim()}>Adicionar comentário</button></form>
       <div className="commentTimeline">{card.comments.length?card.comments.map(item=><article key={item.id}><span>{new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium",timeStyle:"short"}).format(new Date(item.createdAt))}</span><p>{item.body}</p></article>):<div className="commentsEmpty"><CommentIcon/><strong>Nenhuma atividade registrada</strong><p>Use os comentários para criar uma linha do tempo do relacionamento.</p></div>}</div>
     </div>}
     <div className="crmDangerZone">{confirmDelete?<><p>Remover este card e seus comentários?</p><button className="dangerButton" disabled={saving} onClick={()=>void onDelete()}>Sim, remover</button><button className="ghostButton" onClick={()=>setConfirmDelete(false)}>Cancelar</button></>:<button className="dangerLink" onClick={()=>setConfirmDelete(true)}><TrashIcon/> Remover card</button>}</div>

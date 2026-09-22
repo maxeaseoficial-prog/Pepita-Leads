@@ -260,6 +260,8 @@ svg{width:20px;height:20px}
 .crmSaveState{font-size:11px;color:#7e858e;margin-right:4px}
 .crmSaveState:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#52d273;margin-right:6px}
 .crmSaveState.saving:before{background:var(--gold);animation:crmPulse .8s ease-in-out infinite alternate}
+.crmSaveState.failed{color:#ff9b9b}
+.crmSaveState.failed:before{background:#ff7070}
 @keyframes crmPulse{to{opacity:.35}}
 .crmError{margin:10px 26px 0;border:1px solid #703838;background:#2b1416;color:#ffb3b3;border-radius:10px;padding:9px 11px;display:flex;align-items:center;justify-content:space-between;font-size:12px}
 .crmError button{border:0;background:transparent;color:inherit;display:grid;place-items:center}
@@ -276,8 +278,8 @@ svg{width:20px;height:20px}
 .dragHandle:focus-visible,.columnAdd:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
 .dragHandle svg,.columnAdd svg{width:17px;height:17px}
 .crmCardList{min-height:110px;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:8px;scrollbar-color:#34383d transparent}
-.crmCard{border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;box-shadow:0 9px 22px rgba(0,0,0,.18);transition:border-color .18s ease,box-shadow .18s ease,opacity .18s ease}
-.crmCard:hover{border-color:#5f5319;box-shadow:0 12px 28px rgba(0,0,0,.25)}
+.crmCard{border:1px solid #30343a;background:#171a1e;border-radius:12px;padding:10px;transition:border-color .18s ease,opacity .18s ease}
+.crmCard:hover{border-color:#5f5319}
 .crmCard.dragging{opacity:.28}
 .crmCardOverlay{width:270px;transform:rotate(1.5deg);border-color:var(--gold);box-shadow:0 24px 50px rgba(0,0,0,.45)}
 .crmCardTop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
