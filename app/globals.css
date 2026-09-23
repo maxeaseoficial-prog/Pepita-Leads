@@ -80,11 +80,18 @@ svg{width:20px;height:20px}
 .loginButton{border:1px solid #43474d;background:#f4f2ed;color:#111}
 .signupButton{border:1px solid #4b5057;background:#1b1d21;color:#f4f2ed}
 .loginButton:hover{background:#fff}.signupButton:hover{border-color:#75620d;background:#22200f}
-.accountButton{width:42px;height:42px;min-height:42px;padding:0;border:1px solid #5c4d0b;border-radius:50%;background:#201d0a;color:#f8d64e;display:grid;place-items:center;overflow:hidden;position:relative;font-weight:850}
-.accountButton:hover{border-color:var(--gold);background:#292407}
+.accountUsage{--usage-angle:360deg;position:relative;width:44px;height:44px;min-width:44px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--gold) 0 var(--usage-angle),#30343a var(--usage-angle) 360deg);padding:2px;outline:none;transition:transform .18s ease,filter .18s ease}
+.accountUsage:hover,.accountUsage:focus-visible{transform:scale(1.045);filter:brightness(1.08)}
+.accountUsage:focus-visible{box-shadow:0 0 0 2px #0b0d0f,0 0 0 4px var(--gold)}
+.accountButton{width:40px;height:40px;border-radius:50%;background:#201d0a;color:#f8d64e;display:grid;place-items:center;overflow:hidden;position:relative;font-weight:850;border:2px solid #0b0d0f}
 .accountInitial,.accountAvatar{grid-area:1/1;width:100%;height:100%}
 .accountInitial{display:grid;place-items:center;font-size:16px;line-height:1;text-transform:uppercase}
 .accountAvatar{object-fit:cover;position:relative;z-index:1;background:#201d0a}
+.accountUsageTooltip{pointer-events:none;position:absolute;z-index:40;right:0;top:calc(100% + 10px);min-width:190px;padding:10px 12px;border:1px solid #4d430f;border-radius:10px;background:#12130f;box-shadow:0 16px 36px rgba(0,0,0,.35);display:grid;gap:3px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+.accountUsageTooltip:before{content:"";position:absolute;right:14px;top:-5px;width:9px;height:9px;background:#12130f;border-left:1px solid #4d430f;border-top:1px solid #4d430f;transform:rotate(45deg)}
+.accountUsageTooltip strong{font-size:12px;color:#f8d64e;white-space:nowrap}
+.accountUsageTooltip span{font-size:10px;color:#aeb3ba;white-space:nowrap}
+.accountUsage:hover .accountUsageTooltip,.accountUsage:focus-visible .accountUsageTooltip{opacity:1;visibility:visible;transform:translateY(0)}
 .authLoading{font-size:11px;color:var(--muted)}
 .chatView{height:100%;position:relative;overflow:hidden}
 .chatScroll{height:100%;overflow:auto;padding:28px 30px 142px;scrollbar-color:#333 transparent}
@@ -528,7 +535,7 @@ svg{width:20px;height:20px}
   .brand>img{width:40px;height:40px}
   .brand small{display:none}
   .authActions{gap:6px}.loginButton,.signupButton{min-height:36px;padding:0 10px;font-size:11px}
-  .accountButton{width:38px;height:38px;min-height:38px;padding:0}
+  .accountUsage{width:40px;height:40px;min-width:40px}.accountButton{width:36px;height:36px}
   .chatScroll{padding:18px 14px 132px}
   .composer{bottom:12px;width:calc(100% - 24px);grid-template-columns:minmax(0,1fr)}
   .welcome h1{font-size:30px}
@@ -598,8 +605,8 @@ svg{width:20px;height:20px}
 @media(prefers-reduced-motion:reduce){
   .appShell,.sidebar,.sidebarReveal{transition:none;animation:none}
   .crmDrawer,.crmSaveState.saving:before,.skeletonColumns .crmColumn>header,.crmSkeletonCard{animation:none}
-  .planCard,.planButton,.planButton:after{transition:none}
-  .planCard:hover,.planCard.popular:hover,.planButton:hover{transform:none}
+  .planCard,.planButton,.planButton:after,.accountUsage,.accountUsageTooltip{transition:none}
+  .planCard:hover,.planCard.popular:hover,.planButton:hover,.accountUsage:hover,.accountUsage:focus-visible{transform:none}
   .planButton:after{display:none}
 }
 .legalPage{min-height:100vh;padding:48px 20px;background:radial-gradient(circle at 50% 0,#211b05 0,transparent 34%),#070809;color:#f7f5ee}.legalCard{width:min(760px,100%);margin:0 auto;padding:42px;border:1px solid #30343a;border-radius:20px;background:#111418;box-shadow:0 24px 70px rgba(0,0,0,.35)}.legalBack{display:inline-flex;margin-bottom:32px;color:#f4c817;text-decoration:none;font-weight:700}.legalEyebrow{margin:0 0 8px;color:#f4c817;font-size:12px;font-weight:800;letter-spacing:.18em}.legalCard h1{margin:0;font-size:clamp(32px,5vw,48px);line-height:1.05}.legalUpdated{margin:12px 0 36px;color:#9298a1}.legalCard h2{margin:28px 0 8px;font-size:19px}.legalCard p{color:#c2c6cc;line-height:1.7}.legalCard a{color:#f4c817}@media(max-width:600px){.legalPage{padding:20px 12px}.legalCard{padding:28px 22px;border-radius:16px}}

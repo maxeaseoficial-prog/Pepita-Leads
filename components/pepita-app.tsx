@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import type {
   CompanyDetail,
@@ -44,10 +44,27 @@ type View = "chat"|"results"|"crm"|"plans"|"settings";
 type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
 type PlanId = "free"|"basic"|"unlimited";
+type PlanUsage = {freeUsed:number;basicUsed:number;basicPeriod:string};
 
 const VIEWS:View[]=["chat","results","crm","plans","settings"];
 const PLAN_NAMES:Record<PlanId,string>={free:"Grátis",basic:"Basic",unlimited:"Unlimited"};
 const PLAN_PRICES:Record<PlanId,string>={free:"R$ 0",basic:"R$ 29,90/mês",unlimited:"R$ 99,90/mês"};
+const PLAN_SEARCH_LIMITS:Record<PlanId,number|null>={free:3,basic:30,unlimited:null};
+
+function usageMonth() {
+  const now=new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+}
+
+function normalizePlanUsage(value:unknown):PlanUsage {
+  const raw=(value&&typeof value==="object"?value:{}) as Partial<PlanUsage>;
+  const period=usageMonth();
+  return {
+    freeUsed:Math.max(0,Number.isFinite(raw.freeUsed)?Number(raw.freeUsed):0),
+    basicUsed:raw.basicPeriod===period?Math.max(0,Number.isFinite(raw.basicUsed)?Number(raw.basicUsed):0):0,
+    basicPeriod:period
+  };
+}
 
 function currentPlanForUser(user:User|null):PlanId {
   const value=String(user?.app_metadata?.pepita_plan||user?.app_metadata?.plan||"free").toLowerCase();
@@ -178,6 +195,7 @@ export function PepitaApp() {
   const [results,setResults]=useState<CompanyLead[]>([]);
   const [dataset,setDataset]=useState<SearchResponse["dataset"]|null>(null);
   const [history,setHistory]=useState<HistoryItem[]>([]);
+  const [planUsage,setPlanUsage]=useState<PlanUsage>(()=>normalizePlanUsage(null));
   const [working,setWorking]=useState(false);
   const [structuredOpen,setStructuredOpen]=useState(false);
   const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch());
@@ -310,9 +328,17 @@ export function PepitaApp() {
     if(storedHistory) {
       try { setHistory(JSON.parse(storedHistory)); } catch { setHistory([]); }
     } else setHistory([]);
+    const usageKey=`pepita.usage:${scope}`;
+    const storedUsage=localStorage.getItem(usageKey);
+    let nextUsage=normalizePlanUsage(null);
+    if(storedUsage) {
+      try { nextUsage=normalizePlanUsage(JSON.parse(storedUsage)); } catch {}
+    }
+    setPlanUsage(nextUsage);
+    localStorage.setItem(usageKey,JSON.stringify(nextUsage));
   }
 
-  function personalKey(name:"prefs"|"history") {
+  function personalKey(name:"prefs"|"history"|"usage") {
     return `pepita.${name}:${authUser?.id||"guest"}`;
   }
 
@@ -539,6 +565,19 @@ export function PepitaApp() {
     localStorage.setItem(personalKey("history"),JSON.stringify(next));
   }
 
+  function registerSearchUsage(plan:PlanId) {
+    if(plan==="unlimited") return;
+    setPlanUsage(previous=>{
+      const normalized=normalizePlanUsage(previous);
+      const limit=PLAN_SEARCH_LIMITS[plan];
+      const next:PlanUsage=plan==="free"
+        ? {...normalized,freeUsed:Math.min(limit||3,normalized.freeUsed+1)}
+        : {...normalized,basicUsed:Math.min(limit||30,normalized.basicUsed+1)};
+      localStorage.setItem(personalKey("usage"),JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function executeSearch(payload:SearchPayload,query:string) {
     const enforcedPayload=enforceRequiredLeadFilters(payload);
     setWorking(true);
@@ -552,6 +591,7 @@ export function PepitaApp() {
       setResults(result.results);
       setDataset(result.dataset);
       saveHistory(query,enforcedPayload,result);
+      registerSearchUsage(currentPlanForUser(authUser));
 
       if(result.returned===0) {
         addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
@@ -707,6 +747,20 @@ export function PepitaApp() {
   const accountAvatar=String(authUser?.user_metadata?.avatar_url||authUser?.user_metadata?.picture||"");
   const accountInitial=(authUser?.email?.trim().charAt(0)||"?").toUpperCase();
   const currentPlan=currentPlanForUser(authUser);
+  const normalizedUsage=normalizePlanUsage(planUsage);
+  const searchLimit=PLAN_SEARCH_LIMITS[currentPlan];
+  const searchesUsed=currentPlan==="free"?normalizedUsage.freeUsed:currentPlan==="basic"?normalizedUsage.basicUsed:0;
+  const searchesRemaining=searchLimit===null?null:Math.max(0,searchLimit-searchesUsed);
+  const usageRatio=searchLimit===null?1:Math.max(0,Math.min(1,(searchesRemaining||0)/searchLimit));
+  const usageText=searchesRemaining===null
+    ?"Pesquisas ilimitadas"
+    : searchesRemaining===1
+      ?"Ainda resta 1 pesquisa"
+      : `Ainda restam ${searchesRemaining} pesquisas`;
+  const usageDetail=searchLimit===null
+    ? `${PLAN_NAMES[currentPlan]} · uso ilimitado`
+    : `${PLAN_NAMES[currentPlan]} · ${searchesUsed} de ${searchLimit} usadas`;
+  const usageStyle={"--usage-angle":`${usageRatio*360}deg`} as CSSProperties;
 
   return (
     <div className={`appShell ${sidebarHidden?"sidebarCollapsed":""}`}>
@@ -741,10 +795,16 @@ export function PepitaApp() {
           </div>
           <div className="authActions">
             {!authReady?<span className="authLoading">Carregando conta…</span>:authUser?(
-              <button className="accountButton" onClick={()=>navigate("settings")} aria-label="Abrir perfil" title="Perfil">
-                <span className="accountInitial" aria-hidden="true">{accountInitial}</span>
-                {accountAvatar&&<img className="accountAvatar" src={accountAvatar} alt="" onError={event=>{event.currentTarget.style.display="none";}}/>}
-              </button>
+              <div className="accountUsage" style={usageStyle} tabIndex={0} aria-label={`${usageText}. ${usageDetail}.`}>
+                <div className="accountButton" aria-hidden="true">
+                  <span className="accountInitial">{accountInitial}</span>
+                  {accountAvatar&&<img className="accountAvatar" src={accountAvatar} alt="" onError={event=>{event.currentTarget.style.display="none";}}/>}
+                </div>
+                <div className="accountUsageTooltip" role="tooltip">
+                  <strong>{usageText}</strong>
+                  <span>{usageDetail}</span>
+                </div>
+              </div>
             ):(
               <>
                 <button className="loginButton" onClick={()=>setAuthMode("login")}>Entrar</button>
