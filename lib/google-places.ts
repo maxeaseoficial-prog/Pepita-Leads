@@ -69,6 +69,48 @@ function firstEmailFromHtml(html:string) {
   return match?.[1]?.trim().toLowerCase()||null;
 }
 
+function internalLegalUrls(base:URL,html:string) {
+  const urls:string[]=[];
+  const seen=new Set<string>();
+  const keyword=/(?:contato|contact|sobre|about|quem-somos|institucional|privacidade|privacy|termos|terms|legal|politica)/i;
+
+  for(const match of html.matchAll(/href=["']([^"'#]+)["']/gi)) {
+    const href=match[1].trim();
+    if(!keyword.test(href)) continue;
+
+    try {
+      const resolved=new URL(href,base);
+      if(!["http:","https:"].includes(resolved.protocol)) continue;
+      if(resolved.hostname!==base.hostname) continue;
+
+      resolved.hash="";
+      const value=resolved.toString();
+      if(seen.has(value)) continue;
+      seen.add(value);
+      urls.push(value);
+    } catch {}
+  }
+
+  return urls.slice(0,2);
+}
+
+async function fetchExtraWebsitePage(url:string) {
+  try {
+    const response=await fetch(url,{
+      headers:{"User-Agent":"PepitaBusinessEnrichment/1.0"},
+      redirect:"follow",
+      signal:AbortSignal.timeout(5_000),
+      cache:"no-store"
+    });
+    if(!response.ok) return "";
+    const type=response.headers.get("content-type")||"";
+    if(!type.includes("text/html")) return "";
+    return (await response.text()).slice(0,900_000);
+  } catch {
+    return "";
+  }
+}
+
 export async function enrichPlace(company: CompanyLead) {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) return null;
@@ -135,7 +177,16 @@ export async function contactsFromWebsite(website: string): Promise<WebsiteConta
     if (!type.includes("text/html")) return empty;
 
     const html = (await response.text()).slice(0,1_500_000);
-    const instagramMatch = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{1,64})\/?/i);
+    const documents=[html];
+
+    if(!extractCnpjCandidates(html).length) {
+      const extraUrls=internalLegalUrls(url,html);
+      const extra=await Promise.all(extraUrls.map(fetchExtraWebsitePage));
+      documents.push(...extra.filter(Boolean));
+    }
+
+    const combined=documents.join("\n");
+    const instagramMatch = combined.match(/https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{1,64})\/?/i);
 
     return {
       instagram:instagramMatch?{
@@ -143,10 +194,10 @@ export async function contactsFromWebsite(website: string): Promise<WebsiteConta
         confidence:"CONFIRMED_FROM_WEBSITE_LINK",
         source:"OFFICIAL_WEBSITE"
       }:null,
-      whatsapp:firstWhatsappFromHtml(html),
-      phone:firstPhoneFromHtml(html),
-      email:firstEmailFromHtml(html),
-      cnpj:extractCnpjCandidates(html)[0]||null
+      whatsapp:firstWhatsappFromHtml(combined),
+      phone:firstPhoneFromHtml(combined),
+      email:firstEmailFromHtml(combined),
+      cnpj:extractCnpjCandidates(combined)[0]||null
     };
   } catch {
     return empty;
