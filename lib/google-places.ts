@@ -28,6 +28,45 @@ function simpleSimilarity(a: string, b: string) {
   return intersect / Math.max(aa.size, bb.size, 1);
 }
 
+export type WebsiteContacts = {
+  instagram: SocialMatch | null;
+  whatsapp: string | null;
+  phone: string | null;
+  email: string | null;
+};
+
+function formatBrazilPhone(value: string | null) {
+  if (!value) return null;
+  let digits=value.replace(/\D/g,"");
+  if (digits.startsWith("55") && digits.length>=12) digits=digits.slice(2);
+  if (digits.length===11) return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+  if (digits.length===10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+  return value.trim()||null;
+}
+
+function firstWhatsappFromHtml(html:string) {
+  const patterns=[
+    /(?:wa\.me\/)(?:55)?(\d{10,11})/i,
+    /(?:api\.)?whatsapp\.com\/send\?[^"'<>]*?phone=(?:%2B|\+)?(?:55)?(\d{10,11})/i,
+    /(?:whatsapp:\/\/send\?[^"'<>]*?phone=)(?:%2B|\+)?(?:55)?(\d{10,11})/i
+  ];
+  for(const pattern of patterns) {
+    const match=html.match(pattern);
+    if(match?.[1]) return formatBrazilPhone(match[1]);
+  }
+  return null;
+}
+
+function firstPhoneFromHtml(html:string) {
+  const tel=html.match(/href=["']tel:([^"'<>]+)["']/i)?.[1]||null;
+  return formatBrazilPhone(tel);
+}
+
+function firstEmailFromHtml(html:string) {
+  const match=html.match(/href=["']mailto:([^"'<>?]+)(?:\?[^"'<>]*)?["']/i);
+  return match?.[1]?.trim().toLowerCase()||null;
+}
+
 export async function enrichPlace(company: CompanyLead) {
   const key = process.env.GOOGLE_PLACES_API_KEY;
   if (!key) return null;
@@ -78,28 +117,39 @@ export async function enrichPlace(company: CompanyLead) {
   return ranked[0];
 }
 
-export async function instagramFromWebsite(website: string): Promise<SocialMatch | null> {
+export async function contactsFromWebsite(website: string): Promise<WebsiteContacts> {
+  const empty:WebsiteContacts={instagram:null,whatsapp:null,phone:null,email:null};
   try {
     const url = new URL(website);
-    if (!["http:","https:"].includes(url.protocol)) return null;
+    if (!["http:","https:"].includes(url.protocol)) return empty;
 
     const response = await fetch(url, {
       headers: { "User-Agent": "PepitaBusinessEnrichment/1.0" },
       redirect: "follow",
       signal: AbortSignal.timeout(7000)
     });
-    if (!response.ok) return null;
+    if (!response.ok) return empty;
     const type = response.headers.get("content-type") || "";
-    if (!type.includes("text/html")) return null;
-    const html = (await response.text()).slice(0,1_000_000);
-    const match = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{1,64})\/?/i);
-    if (!match) return null;
+    if (!type.includes("text/html")) return empty;
+
+    const html = (await response.text()).slice(0,1_500_000);
+    const instagramMatch = html.match(/https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{1,64})\/?/i);
+
     return {
-      url: `https://www.instagram.com/${match[1]}/`,
-      confidence: "CONFIRMED_FROM_WEBSITE_LINK",
-      source: "OFFICIAL_WEBSITE"
+      instagram:instagramMatch?{
+        url:`https://www.instagram.com/${instagramMatch[1]}/`,
+        confidence:"CONFIRMED_FROM_WEBSITE_LINK",
+        source:"OFFICIAL_WEBSITE"
+      }:null,
+      whatsapp:firstWhatsappFromHtml(html),
+      phone:firstPhoneFromHtml(html),
+      email:firstEmailFromHtml(html)
     };
   } catch {
-    return null;
+    return empty;
   }
+}
+
+export async function instagramFromWebsite(website: string): Promise<SocialMatch | null> {
+  return (await contactsFromWebsite(website)).instagram;
 }
