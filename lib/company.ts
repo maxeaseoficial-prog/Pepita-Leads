@@ -1,6 +1,7 @@
 import { formatCnpj, sizeLabel, yearsBetween } from "./format";
 import { fetchBrasilApi, registryRecordToLead } from "./company-registry";
-import { getRfbDatasetStatus, getRfbSql, rfbTable } from "./rfb-db";
+import { getRfbDatasetStatus, getRfbSql, hasDedicatedRfbDatabase, rfbTable } from "./rfb-db";
+import { getRfbApiCompanyDetail } from "./rfb-api";
 import { scoreCompany } from "./scoring";
 import type { CompanyDetail } from "./types";
 
@@ -26,6 +27,60 @@ export async function getCompanyDetail(cnpj:string):Promise<CompanyDetail|null> 
   const status=await getRfbDatasetStatus();
 
   if(!status.ready) return fallbackRegistry(normalizedCnpj);
+
+  if(!hasDedicatedRfbDatabase()) {
+    const raw=await getRfbApiCompanyDetail(normalizedCnpj);
+    if(!raw) return fallbackRegistry(normalizedCnpj);
+
+    const openingDate=raw.openingDate?String(raw.openingDate):null;
+    const companySizeCode=raw.companySizeCode?String(raw.companySizeCode):null;
+    const partners=Array.isArray(raw.partners)
+      ? raw.partners.map((partner:any)=>({
+          name:String(partner?.name||""),
+          qualification:partner?.qualification?String(partner.qualification):null,
+          entryDate:partner?.entryDate?String(partner.entryDate):null
+        })).filter((partner:any)=>Boolean(partner.name))
+      : [];
+
+    return {
+      cnpj:normalizedCnpj,
+      cnpjFormatted:formatCnpj(normalizedCnpj),
+      legalName:String(raw.legalName||""),
+      tradeName:raw.tradeName?String(raw.tradeName):null,
+      category:raw.category?String(raw.category):null,
+      cnae:raw.cnae?String(raw.cnae):null,
+      statusCode:raw.statusCode?String(raw.statusCode):null,
+      openingDate,
+      ageYears:yearsBetween(openingDate),
+      companySizeCode,
+      companySize:sizeLabel(companySizeCode),
+      capitalSocialCents:raw.capitalSocialCents==null?null:Number(raw.capitalSocialCents),
+      matrixBranch:raw.matrixBranch?String(raw.matrixBranch):"Não informado",
+      city:raw.city?String(raw.city):null,
+      state:raw.state?String(raw.state):null,
+      address:raw.address?String(raw.address):null,
+      postalCode:raw.postalCode?String(raw.postalCode):null,
+      phone:raw.registeredPhone?String(raw.registeredPhone):(raw.registeredPhone2?String(raw.registeredPhone2):null),
+      registeredPhone:raw.registeredPhone?String(raw.registeredPhone):null,
+      registeredPhone2:raw.registeredPhone2?String(raw.registeredPhone2):null,
+      email:raw.email?String(raw.email):null,
+      mapsUrl:null,
+      website:null,
+      social:{instagram:null},
+      potential:{
+        score:50,
+        level:"MEDIUM",
+        reasons:["dados cadastrais públicos confirmados na base RFB"]
+      },
+      partners,
+      simpleOption:raw.simpleOption?String(raw.simpleOption):null,
+      meiOption:raw.meiOption?String(raw.meiOption):null,
+      source:{
+        provider:"RFB_OPEN_DATA",
+        note:"Dados cadastrais provenientes da base oficial CNPJ/RFB da Pepita."
+      }
+    };
+  }
 
   const sql=getRfbSql();
   const establishments=rfbTable("establishments");
