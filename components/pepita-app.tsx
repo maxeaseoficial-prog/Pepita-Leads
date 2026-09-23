@@ -589,7 +589,7 @@ export function PepitaApp() {
     if(plan==="unlimited") return;
     setPlanUsage(previous=>{
       const normalized=normalizePlanUsage(previous);
-      const limit=PLAN_SEARCH_LIMITS[plan];
+      const limit=planConfigs.find(item=>item.id===plan)?.searchLimit ?? (plan==="free"?3:30);
       const next:PlanUsage=plan==="free"
         ? {...normalized,freeUsed:Math.min(limit||3,normalized.freeUsed+1)}
         : {...normalized,basicUsed:Math.min(limit||30,normalized.basicUsed+1)};
