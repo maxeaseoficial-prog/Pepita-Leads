@@ -120,6 +120,34 @@ def list_zip_urls(month: str, include_prefixes: set[str] | None = None) -> list[
     return sorted(files, key=lambda item: item["name"])
 
 
+def standard_zip_files(include_prefixes: set[str] | None = None) -> list[dict]:
+    """Return the stable file layout without a WebDAV directory listing.
+
+    The Receita endpoint sometimes rejects PROPFIND requests from hosted CI
+    runners while still allowing authenticated file downloads.  The CNPJ
+    dataset has a stable layout: ten numbered archives for the large tables
+    and one archive for each lookup table.
+    """
+    names = [
+        "Cnaes.zip",
+        *(f"Empresas{i}.zip" for i in range(10)),
+        *(f"Estabelecimentos{i}.zip" for i in range(10)),
+        "Municipios.zip",
+        "Naturezas.zip",
+        "Paises.zip",
+        "Qualificacoes.zip",
+        "Simples.zip",
+        *(f"Socios{i}.zip" for i in range(10)),
+    ]
+    if include_prefixes:
+        names = [
+            name
+            for name in names
+            if any(name.lower().startswith(prefix.lower()) for prefix in include_prefixes)
+        ]
+    return [{"name": name, "size": None} for name in sorted(names)]
+
+
 def download(month: str, name: str, target: Path, expected_size: int | None):
     if target.exists() and expected_size and target.stat().st_size == expected_size:
         print(f"OK existente: {name} ({expected_size:,} bytes)", flush=True)
@@ -185,6 +213,14 @@ def main():
         default="",
         help="Prefixos separados por vírgula.",
     )
+    parser.add_argument(
+        "--assume-standard-layout",
+        action="store_true",
+        help=(
+            "Ignora a listagem WebDAV e baixa o conjunto padrão de arquivos. "
+            "Use com --month quando PROPFIND estiver bloqueado em CI."
+        ),
+    )
     args = parser.parse_args()
 
     month = args.month.strip() or latest_month()
@@ -197,7 +233,11 @@ def main():
         if item.strip()
     } or None
 
-    files = list_zip_urls(month, include_prefixes)
+    files = (
+        standard_zip_files(include_prefixes)
+        if args.assume_standard_layout
+        else list_zip_urls(month, include_prefixes)
+    )
     output = Path(args.output).expanduser().resolve() / month
     output.mkdir(parents=True, exist_ok=True)
 

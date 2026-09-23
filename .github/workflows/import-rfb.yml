@@ -43,6 +43,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/rfb"
           python scripts/download-rfb.py \
+            --month 2026-09 \
+            --assume-standard-layout \
             --output "$RUNNER_TEMP/rfb" \
             --include "Municipios,Cnaes,Qualificacoes,Empresas,Estabelecimentos,Socios"
           MONTH_DIR="$(find "$RUNNER_TEMP/rfb" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
