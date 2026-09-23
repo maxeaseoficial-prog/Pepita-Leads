@@ -38,7 +38,7 @@ def latest_month() -> str:
     return months[-1]
 
 
-def list_zip_urls(month: str) -> list[str]:
+def list_zip_urls(month: str, include_prefixes: set[str] | None = None) -> list[str]:
     base = urllib.parse.urljoin(ROOT_URL, month.rstrip("/") + "/")
     html = fetch_text(base)
     hrefs = ZIP_RE.findall(html)
@@ -46,6 +46,11 @@ def list_zip_urls(month: str) -> list[str]:
     urls = []
     seen = set()
     for href in hrefs:
+        name = Path(urllib.parse.urlparse(href).path).name
+        if include_prefixes and not any(
+            name.lower().startswith(prefix.lower()) for prefix in include_prefixes
+        ):
+            continue
         url = urllib.parse.urljoin(base, href)
         if url in seen:
             continue
@@ -115,6 +120,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--month", default="")
     parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--include",
+        default="",
+        help="Prefixos separados por vírgula, ex.: Municipios,Cnaes,Empresas",
+    )
     args = parser.parse_args()
 
     month = args.month.strip() or latest_month()
@@ -124,7 +134,12 @@ def main():
     output = Path(args.output).expanduser().resolve() / month
     output.mkdir(parents=True, exist_ok=True)
 
-    urls = list_zip_urls(month)
+    include_prefixes = {
+        item.strip()
+        for item in args.include.split(",")
+        if item.strip()
+    } or None
+    urls = list_zip_urls(month, include_prefixes)
     print(f"Competência: {month}")
     print(f"Arquivos encontrados: {len(urls)}")
     print(f"Destino: {output}")
