@@ -3,6 +3,7 @@ import { searchCompanies } from "./search";
 import { searchGoogleMaps } from "./google-maps-browser";
 import { enrichMapResultsFromRfb } from "./rfb-enrichment";
 import { enrichLeadsFromRegistry } from "./company-registry";
+import { getRfbDatasetStatus } from "./rfb-db";
 import type { SearchPayload, SearchResponse } from "./types";
 
 function objectFromUnknown(value:unknown):Record<string,unknown> {
@@ -25,7 +26,7 @@ function objectFromUnknown(value:unknown):Record<string,unknown> {
 export function normalizeSearchPayload(value:unknown):SearchPayload {
   const raw=objectFromUnknown(value);
 
-  const quantity=Math.max(1,Math.min(60,Number(raw.quantity)||10));
+  const quantity=Math.max(1,Math.min(60,Number(raw.quantity)||20));
   const minCapital=Math.max(0,Number(raw.minCapital)||0);
   const minAgeYears=Math.max(0,Number(raw.minAgeYears)||0);
   const minPotential=
@@ -70,13 +71,18 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
     const health=await getHealth();
     result.dataset.reference=health.datasetReference||null;
   } else {
+    const rfbStatus=await getRfbDatasetStatus();
     const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload);
     const registryEnriched=await enrichLeadsFromRegistry(rfbEnriched,payload);
     result.results=registryEnriched.slice(0,result.requested);
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
-    result.dataset.mode="GOOGLE_MAPS_REGISTRY_ENRICHED";
-    result.dataset.reference="Google Maps + base RFB local + validação pública de CNPJ quando houver correspondência confiável";
+    result.dataset.mode=rfbStatus.ready
+      ?"GOOGLE_MAPS_RFB_ENRICHED"
+      :"GOOGLE_MAPS_REGISTRY_ENRICHED";
+    result.dataset.reference=rfbStatus.ready
+      ?`Google Maps + base oficial CNPJ/RFB ${rfbStatus.reference||""}`.trim()
+      :"Google Maps + validação pública de CNPJ quando houver correspondência confiável";
   }
 
   return result;
