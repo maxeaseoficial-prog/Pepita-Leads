@@ -1,0 +1,33 @@
+name: Probe RFB Direct Download
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/probe-rfb-direct.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe official RFB direct GET
+        run: |
+          set -euxo pipefail
+          URL="https://arquivos.receitafederal.gov.br/public.php/webdav/2026-08/Municipios.zip"
+          curl --fail-with-body --location \
+            --user "YggdBLfdninEJX9:" \
+            --range 0-1023 \
+            --connect-timeout 30 \
+            --max-time 120 \
+            --retry 3 \
+            --retry-all-errors \
+            --dump-header /tmp/headers.txt \
+            --output /tmp/sample.bin \
+            "$URL"
+          cat /tmp/headers.txt
+          wc -c /tmp/sample.bin
+          file /tmp/sample.bin
