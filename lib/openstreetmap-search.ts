@@ -14,6 +14,19 @@ type OsmElement={
   tags?:OsmTags;
 };
 type OsmResponse={elements?:OsmElement[];remark?:string};
+type NominatimRow={
+  place_id?:number;
+  osm_id?:number;
+  osm_type?:"node"|"way"|"relation";
+  lat?:string;
+  lon?:string;
+  name?:string;
+  display_name?:string;
+  category?:string;
+  type?:string;
+  address?:Record<string,string|undefined>;
+  extratags?:OsmTags;
+};
 type CachedSearch={expiresAt:number;value:SearchResponse};
 
 const cache=new Map<string,CachedSearch>();
@@ -179,6 +192,48 @@ function toLead(element:OsmElement,input:SearchPayload):CompanyLead|null {
   };
 }
 
+function nominatimElements(rows:NominatimRow[]) {
+  return rows.map((row,index)=>{
+    const address=row.address||{};
+    const tags:OsmTags={
+      ...(row.extratags||{}),
+      name:clean(row.name||row.display_name?.split(",")[0]),
+      "addr:street":clean(address.road||address.pedestrian),
+      "addr:housenumber":clean(address.house_number),
+      "addr:suburb":clean(address.suburb||address.neighbourhood||address.city_district),
+      "addr:postcode":clean(address.postcode)
+    };
+    if(row.category&&row.type) tags[row.category]=row.type;
+    return {
+      id:Number(row.osm_id||row.place_id||index),
+      type:row.osm_type||"node",
+      lat:Number(row.lat),
+      lon:Number(row.lon),
+      tags
+    } satisfies OsmElement;
+  });
+}
+
+async function searchNominatim(input:SearchPayload) {
+  const url=new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format","jsonv2");
+  url.searchParams.set("q",`${input.niche}, ${input.city}, ${input.state}, Brasil`);
+  url.searchParams.set("limit",String(MAX_RESULTS));
+  url.searchParams.set("extratags","1");
+  url.searchParams.set("addressdetails","1");
+
+  const response=await fetch(url,{
+    headers:{
+      "User-Agent":"PepitaLeads/1.0 (public-business-search)",
+      "Accept-Language":"pt-BR,pt;q=0.9"
+    },
+    signal:AbortSignal.timeout(12_000),
+    cache:"no-store"
+  });
+  if(!response.ok) throw new Error(`NOMINATIM_HTTP_${response.status}`);
+  return nominatimElements(await response.json() as NominatimRow[]);
+}
+
 export async function searchOpenStreetMap(input:SearchPayload):Promise<SearchResponse> {
   const selectors=selectorsForNiche(input.niche);
   const requested=Math.min(Math.max(1,input.quantity),MAX_RESULTS);
@@ -196,23 +251,27 @@ export async function searchOpenStreetMap(input:SearchPayload):Promise<SearchRes
   const cached=cache.get(key);
   if(cached&&cached.expiresAt>Date.now()) return structuredClone(cached.value);
 
-  const endpoint=process.env.OPENSTREETMAP_OVERPASS_URL||DEFAULT_ENDPOINT;
-  const body=new URLSearchParams({data:queryFor(input,selectors)});
-  const response=await fetch(endpoint,{
-    method:"POST",
-    headers:{
-      "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8",
-      "User-Agent":"PepitaLeads/1.0 (public-business-search)"
-    },
-    body,
-    signal:AbortSignal.timeout(25_000),
-    cache:"no-store"
-  });
-  if(!response.ok) throw new Error(`OPENSTREETMAP_HTTP_${response.status}`);
-  const payload=await response.json() as OsmResponse;
+  let elements=await searchNominatim(input).catch(()=>[] as OsmElement[]);
+  if(!elements.length) {
+    const endpoint=process.env.OPENSTREETMAP_OVERPASS_URL||DEFAULT_ENDPOINT;
+    const body=new URLSearchParams({data:queryFor(input,selectors)});
+    const response=await fetch(endpoint,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8",
+        "User-Agent":"PepitaLeads/1.0 (public-business-search)"
+      },
+      body,
+      signal:AbortSignal.timeout(15_000),
+      cache:"no-store"
+    });
+    if(!response.ok) throw new Error(`OPENSTREETMAP_HTTP_${response.status}`);
+    const payload=await response.json() as OsmResponse;
+    elements=payload.elements||[];
+  }
 
   const seen=new Set<string>();
-  const candidates=(payload.elements||[])
+  const candidates=elements
     .map(element=>toLead(element,input))
     .filter((lead):lead is CompanyLead=>Boolean(lead))
     .filter(lead=>{
