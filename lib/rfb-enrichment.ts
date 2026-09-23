@@ -91,38 +91,56 @@ export async function loadPartnersByBase(bases:string[]) {
 export async function enrichMapResultsFromRfb(results:CompanyLead[],input:SearchPayload):Promise<CompanyLead[]> {
   if(!results.length) return [];
   const groups=significantTokenGroups(results);
-  if(!groups.length) return [];
+  if(!groups.length) return results;
 
   const sql=getSql();
-  const params:unknown[]=[input.state,normalizeText(input.city)];
-  let p=3;
+  const municipalityRows=await sql.query(
+    "select count(*)::int as total from municipalities"
+  ) as unknown as Array<{total?:number|string}>;
+  const municipalitiesReady=Number(municipalityRows[0]?.total||0)>0;
+
+  const params:unknown[]=[input.state];
+  let p=2;
+  let cityJoin="";
+  let citySelect="null::text as city";
+  let cityFilter="";
+
+  if(municipalitiesReady) {
+    cityJoin="join municipalities m on m.code=e.municipality_code";
+    citySelect="m.name as city";
+    params.push(normalizeText(input.city));
+    cityFilter=`and m.normalized_name=${p++}`;
+  }
+
   const nameExpr=`regexp_replace(translate(upper(coalesce(nullif(e.trade_name,''),c.legal_name)),'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ','AAAAAEEEEIIIIOOOOOUUUUCN'),'[^A-Z0-9]+',' ','g')`;
   const conditions=groups.map(tokens=>{
     const parts=tokens.map(token=>{
       params.push(`%${token.replace(/[\\%_]/g,char=>`\\${char}`)}%`);
-      return `${nameExpr} like $${p++} escape '\\'`;
+      return `${nameExpr} like ${p++} escape '\\'`;
     });
     return `(${parts.join(" and ")})`;
   });
 
-  params.push(Math.min(Math.max(results.length*35,140),700));
+  params.push(Math.min(Math.max(results.length*45,180),900));
   const rows=await sql.query(`
     select
       e.cnpj,e.cnpj_base,e.matrix_branch_code,e.trade_name,e.status_code,e.opening_date,e.main_cnae,
       e.street_type,e.street,e.number,e.complement,e.neighborhood,e.postal_code,e.state,e.phone1,e.phone2,e.email,
-      c.legal_name,c.capital_social_cents,c.company_size_code,m.name as city,ca.label as cnae_label
+      c.legal_name,c.capital_social_cents,c.company_size_code,${citySelect},ca.label as cnae_label
     from establishments e
     join companies c on c.cnpj_base=e.cnpj_base
-    join municipalities m on m.code=e.municipality_code
+    ${cityJoin}
     left join cnaes ca on ca.code=e.main_cnae
     where e.state=$1
-      and m.normalized_name=$2
+      ${cityFilter}
       and e.status_code='02'
-      and coalesce(e.phone1,e.phone2,'')<>''
-      and coalesce(e.email,'')<>''
       and (${conditions.join(" or ")})
-    order by coalesce(e.trade_name,c.legal_name),e.cnpj
-    limit $${p}
+    order by
+      case when coalesce(e.email,'')<>'' then 0 else 1 end,
+      case when coalesce(e.phone1,e.phone2,'')<>'' then 0 else 1 end,
+      coalesce(e.trade_name,c.legal_name),
+      e.cnpj
+    limit ${p}
   `,params) as unknown as Row[];
 
   const matched=new Map<number,Row>();
@@ -147,7 +165,10 @@ export async function enrichMapResultsFromRfb(results:CompanyLead[],input:Search
 
   results.forEach((lead,index)=>{
     const row=matched.get(index);
-    if(!row) return;
+    if(!row) {
+      enriched.push(lead);
+      return;
+    }
     const officialPhone=String(row.phone1||row.phone2||"")||null;
     const officialEmail=String(row.email||"")||null;
     const potential=scoreCompany(row);
