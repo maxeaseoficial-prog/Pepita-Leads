@@ -1,6 +1,7 @@
 import { formatCnpj, normalizeText, sizeLabel, yearsBetween } from "./format";
 import { getRfbDatasetStatus, getRfbSql, hasDedicatedRfbDatabase, rfbTable } from "./rfb-db";
 import { matchRfbBatch } from "./rfb-api";
+import { resolveNiche } from "./niches";
 import { scoreCompany } from "./scoring";
 import type { CompanyLead, Partner, SearchPayload } from "./types";
 
@@ -209,7 +210,8 @@ async function enrichMapResultsFromRfbApi(
   results:CompanyLead[],
   input:SearchPayload
 ):Promise<CompanyLead[]> {
-  const matches=await matchRfbBatch(input.state,input.city,results);
+  const cnaes=await resolveNiche(input.niche).catch(()=>[]);
+  const matches=await matchRfbBatch(input.state,input.city,results,cnaes);
   if(!matches?.length) return results;
 
   const byIndex=new Map(matches.map(match=>[Number(match.index),match]));
@@ -252,6 +254,13 @@ export async function enrichMapResultsFromRfb(
 ):Promise<CompanyLead[]> {
   if(!results.length) return [];
 
+  // Em produção, a Pepita acessa o projeto RFB remoto por RPC/Edge Function.
+  // Isso funciona inclusive enquanto a carga completa ainda está em andamento:
+  // o resolvedor sob demanda busca apenas cidade + CNAE e grava o match no RFB.
+  if(!hasDedicatedRfbDatabase()) {
+    return enrichMapResultsFromRfbApi(results,input);
+  }
+
   const status=await getRfbDatasetStatus();
   if(!status.ready) return results;
 
@@ -261,10 +270,6 @@ export async function enrichMapResultsFromRfb(
     &&!status.states.includes(input.state)
   ) {
     return results;
-  }
-
-  if(!hasDedicatedRfbDatabase()) {
-    return enrichMapResultsFromRfbApi(results,input);
   }
 
   const matched=new Map<number,Row>();
