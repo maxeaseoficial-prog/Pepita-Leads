@@ -1,5 +1,5 @@
-import { getSql } from "./db";
 import { formatCnpj, normalizeText, sizeLabel, yearsBetween } from "./format";
+import { getRfbDatasetStatus, getRfbSql, rfbTable } from "./rfb-db";
 import { scoreCompany } from "./scoring";
 import type { CompanyLead, Partner, SearchPayload } from "./types";
 
@@ -7,7 +7,7 @@ type Row=Record<string,unknown>;
 
 const NAME_STOP_WORDS=new Set([
   "A","AS","O","OS","DE","DA","DAS","DO","DOS","E","EM","PARA","LTDA","ME","EPP","SA","S","S A",
-  "COMERCIO","COMERCIAL","SERVICOS","SERVICO","EMPRESA","EMPRESAS"
+  "COMERCIO","COMERCIAL","SERVICOS","SERVICO","EMPRESA","EMPRESAS","CLINICA","CLINICAS"
 ]);
 
 function cleanName(value:string) {
@@ -18,64 +18,179 @@ function cleanName(value:string) {
 }
 
 function nameTokens(value:string) {
-  return [...new Set(cleanName(value).split(" ").filter(token=>token.length>=3&&!NAME_STOP_WORDS.has(token)))]
-    .sort((a,b)=>b.length-a.length);
-}
-
-function phoneDigits(value?:string|null) {
-  const digits=(value||"").replace(/\D/g,"");
-  return digits.length>=8?digits.slice(-8):digits;
-}
-
-function addressNumber(value?:string|null) {
-  return (value||"").match(/\b\d{1,6}\b/)?.[0]||"";
+  return [...new Set(
+    cleanName(value)
+      .split(" ")
+      .filter(token=>token.length>=3&&!NAME_STOP_WORDS.has(token))
+  )].sort((a,b)=>b.length-a.length);
 }
 
 function similarity(a:string,b:string) {
   const left=nameTokens(a);
   const right=nameTokens(b);
   if(!left.length||!right.length) return 0;
-  const la=left.join(" "),rb=right.join(" ");
+
+  const la=left.join(" ");
+  const rb=right.join(" ");
   if(la===rb) return 1;
-  if((la.includes(rb)||rb.includes(la))&&Math.min(la.length,rb.length)>=5) return .9;
+  if((la.includes(rb)||rb.includes(la))&&Math.min(la.length,rb.length)>=5) return .92;
+
   const rightSet=new Set(right);
   const common=left.filter(token=>rightSet.has(token)).length;
   return (2*common)/(left.length+right.length);
 }
 
-function matchScore(lead:CompanyLead,row:Row) {
-  const trade=String(row.trade_name||"");
-  const legal=String(row.legal_name||"");
-  let score=Math.max(similarity(lead.tradeName||lead.legalName,trade),similarity(lead.tradeName||lead.legalName,legal));
-  const leadPhone=phoneDigits(lead.phone);
-  const officialPhone=phoneDigits(String(row.phone1||row.phone2||""));
-  if(leadPhone&&officialPhone&&leadPhone===officialPhone) score+=.28;
-  const leadNumber=addressNumber(lead.address);
-  const officialNumber=String(row.number||"");
-  if(leadNumber&&officialNumber&&leadNumber===officialNumber) score+=.08;
-  return score;
+function digits(value?:string|null) {
+  return (value||"").replace(/\D/g,"");
+}
+
+function phoneTail(value?:string|null) {
+  const valueDigits=digits(value);
+  return valueDigits.length>=8?valueDigits.slice(-8):valueDigits;
+}
+
+function addressNumber(value?:string|null) {
+  return (value||"").match(/\b\d{1,6}\b/)?.[0]||"";
+}
+
+function postalCodeFromAddress(value?:string|null) {
+  const match=(value||"").match(/\b(\d{5})-?(\d{3})\b/);
+  return match?match[1]+match[2]:"";
 }
 
 function officialAddress(row:Row) {
-  return [row.street_type,row.street,row.number,row.complement,row.neighborhood].filter(Boolean).join(" ")||null;
+  return [row.street_type,row.street,row.number,row.complement,row.neighborhood]
+    .filter(Boolean)
+    .join(" ")||null;
 }
 
-function significantTokenGroups(results:CompanyLead[]) {
-  return results.map(lead=>nameTokens(lead.tradeName||lead.legalName).slice(0,2)).filter(tokens=>tokens.length);
+function officialPostal(row:Row) {
+  return digits(String(row.postal_code||""));
+}
+
+function candidateNameScore(lead:CompanyLead,row:Row) {
+  const leadName=lead.tradeName||lead.legalName;
+  const trade=String(row.trade_name||"");
+  const legal=String(row.legal_name||"");
+  const tokenScore=Math.max(similarity(leadName,trade),similarity(leadName,legal));
+  const trigram=Math.max(
+    Number(row.trade_similarity||0),
+    Number(row.legal_similarity||0)
+  );
+  return Math.max(tokenScore,trigram);
+}
+
+function candidateEvidence(lead:CompanyLead,row:Row) {
+  const leadPhone=phoneTail(lead.phone);
+  const phone1=String(row.phone1_last8||"");
+  const phone2=String(row.phone2_last8||"");
+  const phoneMatch=Boolean(leadPhone&&(leadPhone===phone1||leadPhone===phone2));
+
+  const leadPostal=postalCodeFromAddress(lead.address);
+  const postalMatch=Boolean(leadPostal&&leadPostal===officialPostal(row));
+
+  const leadNumber=addressNumber(lead.address);
+  const numberMatch=Boolean(
+    leadNumber
+    &&String(row.number||"").replace(/\D/g,"")===leadNumber
+  );
+
+  return {phoneMatch,postalMatch,numberMatch};
+}
+
+function rankCandidate(lead:CompanyLead,row:Row) {
+  const nameScore=candidateNameScore(lead,row);
+  const evidence=candidateEvidence(lead,row);
+  let score=nameScore*.68;
+  if(evidence.phoneMatch) score+=.34;
+  if(evidence.postalMatch) score+=.16;
+  if(evidence.numberMatch) score+=.10;
+  return {row,nameScore,score:Math.min(1.25,score),...evidence};
+}
+
+type RankedCandidate=ReturnType<typeof rankCandidate>;
+
+function acceptCandidate(best:RankedCandidate,second?:RankedCandidate) {
+  if(best.phoneMatch&&best.nameScore>=.25) return true;
+  if(best.postalMatch&&best.nameScore>=.52) return true;
+  if(best.numberMatch&&best.nameScore>=.72) return true;
+
+  const margin=second?best.score-second.score:best.score;
+  return best.nameScore>=.90&&(!second||margin>=.08);
+}
+
+async function candidatesForLead(lead:CompanyLead,input:SearchPayload) {
+  const sql=getRfbSql();
+  const establishments=rfbTable("establishments");
+  const companies=rfbTable("companies");
+  const municipalities=rfbTable("municipalities");
+  const cnaes=rfbTable("cnaes");
+
+  const leadName=cleanName(lead.tradeName||lead.legalName);
+  const leadPhone=phoneTail(lead.phone);
+
+  const query=[
+    "select",
+    "  e.cnpj,e.cnpj_base,e.matrix_branch_code,e.trade_name,e.normalized_trade_name,",
+    "  e.status_code,e.opening_date,e.main_cnae,e.street_type,e.street,e.number,",
+    "  e.complement,e.neighborhood,e.postal_code,e.state,e.phone1,e.phone1_last8,",
+    "  e.phone2,e.phone2_last8,e.email,",
+    "  c.legal_name,c.normalized_legal_name,c.capital_social_cents,c.company_size_code,",
+    "  m.name as city,ca.label as cnae_label,",
+    "  similarity(coalesce(e.normalized_trade_name,''),$3) as trade_similarity,",
+    "  similarity(c.normalized_legal_name,$3) as legal_similarity",
+    "from "+establishments+" e",
+    "join "+companies+" c on c.cnpj_base=e.cnpj_base",
+    "join "+municipalities+" m on m.code=e.municipality_code",
+    "left join "+cnaes+" ca on ca.code=e.main_cnae",
+    "where e.state=$1",
+    "  and m.normalized_name=$2",
+    "  and e.status_code='02'",
+    "  and (",
+    "    ($4<>'' and ($4=e.phone1_last8 or $4=e.phone2_last8))",
+    "    or e.normalized_trade_name % $3",
+    "    or c.normalized_legal_name % $3",
+    "  )",
+    "order by",
+    "  case when $4<>'' and ($4=e.phone1_last8 or $4=e.phone2_last8) then 0 else 1 end,",
+    "  greatest(",
+    "    similarity(coalesce(e.normalized_trade_name,''),$3),",
+    "    similarity(c.normalized_legal_name,$3)",
+    "  ) desc,",
+    "  e.cnpj",
+    "limit 15"
+  ].join("\n");
+
+  const rows=await sql.query(
+    query,
+    [input.state,normalizeText(input.city),leadName,leadPhone]
+  ) as unknown as Row[];
+
+  return rows.map(row=>rankCandidate(lead,row)).sort((a,b)=>b.score-a.score);
 }
 
 export async function loadPartnersByBase(bases:string[]) {
   const unique=[...new Set(bases.filter(Boolean))];
   const map=new Map<string,Partner[]>();
   if(!unique.length) return map;
-  const sql=getSql();
-  const rows=await sql.query(`
-    select p.cnpj_base,p.name,q.label as qualification,p.entry_date
-    from partners p
-    left join qualifications q on q.code=p.qualification_code
-    where p.cnpj_base=any($1::text[])
-    order by p.cnpj_base,p.name
-  `,[unique]) as unknown as Row[];
+
+  const status=await getRfbDatasetStatus();
+  if(!status.ready) return map;
+
+  const sql=getRfbSql();
+  const partners=rfbTable("partners");
+  const qualifications=rfbTable("qualifications");
+
+  const query=[
+    "select p.cnpj_base,p.name,q.label as qualification,p.entry_date",
+    "from "+partners+" p",
+    "left join "+qualifications+" q on q.code=p.qualification_code",
+    "where p.cnpj_base=any($1::text[])",
+    "order by p.cnpj_base,p.name"
+  ].join("\n");
+
+  const rows=await sql.query(query,[unique]) as unknown as Row[];
+
   for(const row of rows) {
     const base=String(row.cnpj_base);
     const partner:Partner={
@@ -85,119 +200,88 @@ export async function loadPartnersByBase(bases:string[]) {
     };
     map.set(base,[...(map.get(base)||[]),partner]);
   }
+
   return map;
 }
 
-export async function enrichMapResultsFromRfb(results:CompanyLead[],input:SearchPayload):Promise<CompanyLead[]> {
+export async function enrichMapResultsFromRfb(
+  results:CompanyLead[],
+  input:SearchPayload
+):Promise<CompanyLead[]> {
   if(!results.length) return [];
-  const groups=significantTokenGroups(results);
-  if(!groups.length) return results;
 
-  const sql=getSql();
-  const municipalityRows=await sql.query(
-    "select count(*)::int as total from municipalities"
-  ) as unknown as Array<{total?:number|string}>;
-  const municipalitiesReady=Number(municipalityRows[0]?.total||0)>0;
+  const status=await getRfbDatasetStatus();
+  if(!status.ready) return results;
 
-  const params:unknown[]=[input.state];
-  let p=2;
-  let cityJoin="";
-  let citySelect="null::text as city";
-  let cityFilter="";
-
-  if(municipalitiesReady) {
-    cityJoin="join municipalities m on m.code=e.municipality_code";
-    citySelect="m.name as city";
-    params.push(normalizeText(input.city));
-    cityFilter=`and m.normalized_name=$${p++}`;
+  if(
+    status.states.length
+    &&!status.states.includes("BR")
+    &&!status.states.includes(input.state)
+  ) {
+    return results;
   }
-
-  const nameExpr=`regexp_replace(translate(upper(coalesce(nullif(e.trade_name,''),c.legal_name)),'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ','AAAAAEEEEIIIIOOOOOUUUUCN'),'[^A-Z0-9]+',' ','g')`;
-  const conditions=groups.map(tokens=>{
-    const parts=tokens.map(token=>{
-      params.push(`%${token.replace(/[\\%_]/g,char=>`\\${char}`)}%`);
-      return `${nameExpr} like $${p++} escape '\\'`;
-    });
-    return `(${parts.join(" and ")})`;
-  });
-
-  params.push(Math.min(Math.max(results.length*45,180),900));
-  const rows=await sql.query(`
-    select
-      e.cnpj,e.cnpj_base,e.matrix_branch_code,e.trade_name,e.status_code,e.opening_date,e.main_cnae,
-      e.street_type,e.street,e.number,e.complement,e.neighborhood,e.postal_code,e.state,e.phone1,e.phone2,e.email,
-      c.legal_name,c.capital_social_cents,c.company_size_code,${citySelect},ca.label as cnae_label
-    from establishments e
-    join companies c on c.cnpj_base=e.cnpj_base
-    ${cityJoin}
-    left join cnaes ca on ca.code=e.main_cnae
-    where e.state=$1
-      ${cityFilter}
-      and e.status_code='02'
-      and (${conditions.join(" or ")})
-    order by
-      case when coalesce(e.email,'')<>'' then 0 else 1 end,
-      case when coalesce(e.phone1,e.phone2,'')<>'' then 0 else 1 end,
-      coalesce(e.trade_name,c.legal_name),
-      e.cnpj
-    limit $${p}
-  `,params) as unknown as Row[];
 
   const matched=new Map<number,Row>();
   const usedCnpjs=new Set<string>();
-  results.forEach((lead,index)=>{
-    let best:Row|null=null;
-    let bestScore=0;
-    for(const row of rows) {
-      const cnpj=String(row.cnpj||"");
-      if(usedCnpjs.has(cnpj)) continue;
-      const score=matchScore(lead,row);
-      if(score>bestScore) {best=row;bestScore=score;}
-    }
-    const threshold=municipalitiesReady?.66:.95;
-    if(best&&bestScore>=threshold) {
-      matched.set(index,best);
-      usedCnpjs.add(String(best.cnpj));
-    }
-  });
 
-  const partnerMap=await loadPartnersByBase([...matched.values()].map(row=>String(row.cnpj_base)));
-  const enriched:CompanyLead[]=[];
+  for(let index=0;index<results.length;index+=1) {
+    const lead=results[index];
+    const ranked=await candidatesForLead(lead,input);
+    const available=ranked.filter(candidate=>
+      !usedCnpjs.has(String(candidate.row.cnpj||""))
+    );
+    const best=available[0];
+    const second=available[1];
 
-  results.forEach((lead,index)=>{
+    if(!best||!acceptCandidate(best,second)) continue;
+
+    const cnpj=String(best.row.cnpj||"");
+    if(!cnpj) continue;
+
+    matched.set(index,best.row);
+    usedCnpjs.add(cnpj);
+  }
+
+  const partnerMap=await loadPartnersByBase(
+    [...matched.values()].map(row=>String(row.cnpj_base))
+  );
+
+  return results.map((lead,index)=>{
     const row=matched.get(index);
-    if(!row) {
-      enriched.push(lead);
-      return;
-    }
-    const officialPhone=String(row.phone1||row.phone2||"")||null;
+    if(!row) return lead;
+
+    const registeredPhone=String(row.phone1||"")||null;
+    const registeredPhone2=String(row.phone2||"")||null;
     const officialEmail=String(row.email||"")||null;
     const potential=scoreCompany(row);
-    enriched.push({
+
+    return {
       ...lead,
       cnpj:String(row.cnpj),
       cnpjFormatted:formatCnpj(String(row.cnpj)),
       legalName:String(row.legal_name),
       tradeName:row.trade_name?String(row.trade_name):lead.tradeName,
       category:row.cnae_label?String(row.cnae_label):lead.category,
-      cnae:row.main_cnae?String(row.main_cnae):null,
-      statusCode:row.status_code?String(row.status_code):null,
-      openingDate:row.opening_date?String(row.opening_date):null,
+      cnae:row.main_cnae?String(row.main_cnae):lead.cnae,
+      statusCode:row.status_code?String(row.status_code):lead.statusCode,
+      openingDate:row.opening_date?String(row.opening_date):lead.openingDate,
       ageYears:yearsBetween(row.opening_date?String(row.opening_date):null),
-      companySizeCode:row.company_size_code?String(row.company_size_code):null,
+      companySizeCode:row.company_size_code?String(row.company_size_code):lead.companySizeCode,
       companySize:sizeLabel(row.company_size_code?String(row.company_size_code):null),
-      capitalSocialCents:row.capital_social_cents==null?null:Number(row.capital_social_cents),
+      capitalSocialCents:row.capital_social_cents==null
+        ?lead.capitalSocialCents
+        :Number(row.capital_social_cents),
       matrixBranch:String(row.matrix_branch_code)==="1"?"Matriz":"Filial",
       city:row.city?String(row.city):lead.city,
       state:row.state?String(row.state):lead.state,
       address:officialAddress(row)||lead.address,
-      postalCode:row.postal_code?String(row.postal_code):null,
-      phone:officialPhone||lead.phone,
-      email:officialEmail,
+      postalCode:row.postal_code?String(row.postal_code):lead.postalCode,
+      phone:lead.phone||registeredPhone||registeredPhone2,
+      registeredPhone,
+      registeredPhone2,
+      email:officialEmail||lead.email,
       potential,
       partners:partnerMap.get(String(row.cnpj_base))||[]
-    });
+    };
   });
-
-  return enriched;
 }
