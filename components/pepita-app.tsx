@@ -56,6 +56,29 @@ type PlanConfig = {
   popular:boolean;
 };
 
+type SearchJobDto={
+  id:string;
+  query:string;
+  payload:SearchPayload;
+  status:"pending"|"running"|"completed"|"failed";
+  result:SearchResponse|null;
+  error:string|null;
+  createdAt:string;
+  startedAt:string|null;
+  completedAt:string|null;
+  updatedAt:string;
+};
+
+function getSearchClientId() {
+  const key="pepita.search-client";
+  let value=localStorage.getItem(key);
+  if(!value) {
+    value=crypto.randomUUID();
+    localStorage.setItem(key,value);
+  }
+  return value;
+}
+
 const VIEWS:View[]=["chat","results","crm","plans","settings"];
 const DEFAULT_PLAN_CONFIGS:PlanConfig[]=[
   {id:"free",name:"Grátis",description:"Experimente a Pepita e descubra o poder da prospecção inteligente.",priceCents:0,searchLimit:3,resultsPerSearch:20,resultLimit:60,popular:false},
@@ -248,6 +271,9 @@ export function PepitaApp() {
   const voiceAudioContextRef=useRef<AudioContext|null>(null);
   const voiceAnimationFrameRef=useRef<number|null>(null);
   const voiceBarsRef=useRef<Array<HTMLSpanElement|null>>([]);
+  const searchPollGenerationRef=useRef(0);
+  const activeSearchJobRef=useRef<string|null>(null);
+  const handledSearchJobsRef=useRef<Set<string>>(new Set());
 
   useEffect(()=>{
     const syncView=()=>setView(viewFromHash(window.location.hash));
@@ -328,7 +354,13 @@ export function PepitaApp() {
     };
   },[accessToken]);
 
+  useEffect(()=>{
+    if(!authReady) return;
+    void resumeLatestSearch();
+  },[authReady,accessToken,authUser?.id]);
+
   useEffect(()=>()=>{
+    searchPollGenerationRef.current+=1;
     recognitionRef.current?.abort();
     if(voiceTimerRef.current!==null) window.clearInterval(voiceTimerRef.current);
     stopVoiceVisualizer();
@@ -616,11 +648,25 @@ export function PepitaApp() {
     setMessages(prev=>[...prev,{id:id(),role,text,kind}]);
   }
 
-  function saveHistory(query:string,payload:SearchPayload,result:SearchResponse) {
-    const item:HistoryItem={id:id(),at:new Date().toISOString(),query,payload,result};
-    const next=[item,...history].slice(0,12);
-    setHistory(next);
-    localStorage.setItem(personalKey("history"),JSON.stringify(next));
+  function saveHistory(query:string,payload:SearchPayload,result:SearchResponse,itemId=id()) {
+    setHistory(previous=>{
+      if(previous.some(item=>item.id===itemId)) return previous;
+      const item:HistoryItem={id:itemId,at:new Date().toISOString(),query,payload,result};
+      const next=[item,...previous].slice(0,12);
+      localStorage.setItem(personalKey("history"),JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function historyAlreadyHas(itemId:string) {
+    try {
+      const stored=localStorage.getItem(personalKey("history"));
+      if(!stored) return false;
+      const items=JSON.parse(stored) as HistoryItem[];
+      return Array.isArray(items)&&items.some(item=>item.id===itemId);
+    } catch {
+      return false;
+    }
   }
 
   function registerSearchUsage(plan:PlanId) {
@@ -636,37 +682,138 @@ export function PepitaApp() {
     });
   }
 
+  function searchJobHeaders(contentType=false) {
+    return {
+      ...(contentType?{"Content-Type":"application/json"}:{}),
+      "X-Pepita-Client":getSearchClientId(),
+      ...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})
+    };
+  }
+
+  async function searchJobRequest(path:string,init?:RequestInit) {
+    const response=await fetch(path,{
+      ...init,
+      headers:{
+        ...searchJobHeaders(Boolean(init?.body)),
+        ...(init?.headers||{})
+      },
+      cache:"no-store"
+    });
+    const data=await response.json().catch(()=>({})) as {job?:SearchJobDto|null;message?:string;error?:string};
+    if(!response.ok) throw new Error(data.message||data.error||"Falha ao consultar a busca.");
+    return data;
+  }
+
+  async function acknowledgeSearchJob(jobId:string) {
+    try {
+      await searchJobRequest(`/api/search/jobs/${jobId}`,{method:"PATCH"});
+    } catch {}
+  }
+
+  async function finishSearchJob(job:SearchJobDto,generation:number) {
+    if(searchPollGenerationRef.current!==generation) return;
+    if(handledSearchJobsRef.current.has(job.id)) return;
+    handledSearchJobsRef.current.add(job.id);
+    activeSearchJobRef.current=null;
+
+    if(job.status==="completed"&&job.result) {
+      setCurrentSearch(job.payload);
+      setResults(job.result.results);
+      setDataset(job.result.dataset);
+
+      const alreadySaved=historyAlreadyHas(job.id);
+      if(!alreadySaved) {
+        saveHistory(job.query,job.payload,job.result,job.id);
+        registerSearchUsage(effectivePlan||currentPlanForUser(authUser));
+      }
+
+      if(job.result.returned===0) {
+        addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
+      } else {
+        const text=job.result.partial
+          ? `Encontrei ${job.result.returned} empresas compatíveis para ${job.result.requested} solicitadas. Clique para ver os resultados.`
+          : `Encontrei ${job.result.returned} empresas compatíveis. Clique para ver os resultados.`;
+        addMessage("assistant",text,"result");
+      }
+    } else {
+      addMessage("assistant",job.error||"Não consegui concluir a busca.","error");
+    }
+
+    setWorking(false);
+    await acknowledgeSearchJob(job.id);
+  }
+
+  async function pollSearchJob(jobId:string,generation:number,initial?:SearchJobDto) {
+    activeSearchJobRef.current=jobId;
+    setWorking(true);
+    let job=initial||null;
+
+    while(searchPollGenerationRef.current===generation) {
+      if(job&&(job.status==="completed"||job.status==="failed")) {
+        await finishSearchJob(job,generation);
+        return;
+      }
+
+      await new Promise(resolve=>window.setTimeout(resolve,document.hidden?2500:1200));
+      if(searchPollGenerationRef.current!==generation) return;
+
+      try {
+        const data=await searchJobRequest(`/api/search/jobs/${jobId}`);
+        job=data.job||null;
+        if(job) {
+          setCurrentSearch(job.payload);
+          if(job.status==="pending"||job.status==="running") setWorking(true);
+        }
+      } catch(error) {
+        if(searchPollGenerationRef.current!==generation) return;
+        await new Promise(resolve=>window.setTimeout(resolve,2000));
+      }
+    }
+  }
+
+  async function resumeLatestSearch() {
+    const generation=++searchPollGenerationRef.current;
+    try {
+      const data=await searchJobRequest("/api/search/jobs");
+      const job=data.job||null;
+      if(!job) {
+        activeSearchJobRef.current=null;
+        return;
+      }
+
+      setCurrentSearch(job.payload);
+      if(job.status==="completed"||job.status==="failed") {
+        await finishSearchJob(job,generation);
+        return;
+      }
+
+      void pollSearchJob(job.id,generation,job);
+    } catch {}
+  }
+
   async function executeSearch(payload:SearchPayload,query:string) {
     const enforcedPayload=enforceRequiredLeadFilters(payload);
     setWorking(true);
     setCurrentSearch(enforcedPayload);
-    try {
-      const result=await fetchJson<SearchResponse>("/api/search",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(enforcedPayload)
-      });
-      setResults(result.results);
-      setDataset(result.dataset);
-      saveHistory(query,enforcedPayload,result);
-      registerSearchUsage(effectivePlan||currentPlanForUser(authUser));
 
-      if(result.returned===0) {
-        addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
-      } else {
-        const text=result.partial
-          ? `Encontrei ${result.returned} empresas compatíveis para ${result.requested} solicitadas. Clique para ver os resultados.`
-          : `Encontrei ${result.returned} empresas compatíveis. Clique para ver os resultados.`;
-        addMessage("assistant",text,"result");
-      }
+    try {
+      const data=await searchJobRequest("/api/search/jobs",{
+        method:"POST",
+        body:JSON.stringify({query,payload:enforcedPayload})
+      });
+      const job=data.job;
+      if(!job) throw new Error("Não consegui iniciar a busca.");
+
+      const generation=++searchPollGenerationRef.current;
+      activeSearchJobRef.current=job.id;
+      void pollSearchJob(job.id,generation,job);
     } catch(error) {
+      setWorking(false);
       addMessage(
         "assistant",
-        error instanceof Error ? error.message : "Não consegui concluir a busca.",
+        error instanceof Error?error.message:"Não consegui iniciar a busca.",
         "error"
       );
-    } finally {
-      setWorking(false);
     }
   }
 
