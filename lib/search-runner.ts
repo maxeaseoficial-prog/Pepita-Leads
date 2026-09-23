@@ -1,6 +1,7 @@
 import { getHealth } from "./health";
 import { searchCompanies } from "./search";
 import { searchGoogleMaps } from "./google-maps-browser";
+import { searchOpenStreetMap } from "./openstreetmap-search";
 import { enrichMapResultsFromRfb } from "./rfb-enrichment";
 import { enrichLeadsFromRegistry } from "./company-registry";
 import { getRfbDatasetStatus } from "./rfb-db";
@@ -65,24 +66,37 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
   if(!payload.city) throw new Error("Informe a cidade.");
 
   const useRfb=process.env.SEARCH_PROVIDER==="RFB";
-  const result=useRfb?await searchCompanies(payload):await searchGoogleMaps(payload);
+  let result:SearchResponse;
+  if(useRfb) {
+    result=await searchCompanies(payload);
+  } else {
+    const publicDirectory=await searchOpenStreetMap(payload).catch(()=>null);
+    result=publicDirectory?.results.length
+      ?publicDirectory
+      :await searchGoogleMaps(payload);
+  }
 
   if(useRfb) {
     const health=await getHealth();
     result.dataset.reference=health.datasetReference||null;
   } else {
+    const fromOpenStreetMap=result.dataset.mode==="OPENSTREETMAP";
     const rfbStatus=await getRfbDatasetStatus();
     const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload);
     const registryEnriched=await enrichLeadsFromRegistry(rfbEnriched,payload);
     result.results=registryEnriched.slice(0,result.requested);
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
-    result.dataset.mode=rfbStatus.ready
-      ?"GOOGLE_MAPS_RFB_ENRICHED"
-      :"GOOGLE_MAPS_REGISTRY_ENRICHED";
-    result.dataset.reference=rfbStatus.ready
-      ?`Google Maps + base oficial CNPJ/RFB ${rfbStatus.reference||""}`.trim()
-      :"Google Maps + validação pública de CNPJ quando houver correspondência confiável";
+    result.dataset.mode=fromOpenStreetMap
+      ?(rfbStatus.ready?"OPENSTREETMAP_RFB_ENRICHED":"OPENSTREETMAP_REGISTRY_ENRICHED")
+      :(rfbStatus.ready?"GOOGLE_MAPS_RFB_ENRICHED":"GOOGLE_MAPS_REGISTRY_ENRICHED");
+    result.dataset.reference=fromOpenStreetMap
+      ?(rfbStatus.ready
+        ?`OpenStreetMap + base oficial CNPJ/RFB ${rfbStatus.reference||""}`.trim()
+        :"© OpenStreetMap contributors + validação pública de CNPJ/OpenCNPJ quando houver correspondência confiável")
+      :(rfbStatus.ready
+        ?`Google Maps + base oficial CNPJ/RFB ${rfbStatus.reference||""}`.trim()
+        :"Google Maps + validação pública de CNPJ quando houver correspondência confiável");
   }
 
   return result;

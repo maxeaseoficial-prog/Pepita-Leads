@@ -949,6 +949,8 @@ export function PepitaApp() {
     if(command.type==="source") {
       addMessage("assistant",dataset?.mode==="RFB_OPEN_DATA"
         ?"Os dados cadastrais da busca vêm da base pública CNPJ importada pela Pepita. Site e Instagram, quando habilitados, usam enriquecimento separado."
+        :dataset?.mode.startsWith("OPENSTREETMAP")
+          ?"Os estabelecimentos vieram do OpenStreetMap e são enriquecidos com dados cadastrais públicos do OpenCNPJ quando há correspondência confiável."
         :dataset?.mode==="GOOGLE_MAPS_BROWSER"
           ?"Os resultados foram consultados diretamente nas fichas públicas do Google Maps no momento da busca."
           :"A fonte da busca ainda não está pronta.");
@@ -1315,7 +1317,7 @@ function ResultsView({
 
       {tab==="current"?(
         <>
-          {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
+          {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode.startsWith("OPENSTREETMAP")?"© OpenStreetMap contributors + dados cadastrais públicos":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
 
           {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
 
