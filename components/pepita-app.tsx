@@ -848,7 +848,7 @@ export function PepitaApp() {
           <div className="brand">
             <img src="/pepita/icon-64.png" alt=""/>
             <div>
-              <div className="brandTitle">PEPITA</div>
+              <div className="brandTitle">PEPITA{currentPlan==="unlimited"&&<span className="unlimitedBadge" title="Plano Unlimited">Unlimited</span>}</div>
               <small>Seu assistente de prospecção empresarial</small>
             </div>
           </div>
