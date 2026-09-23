@@ -197,14 +197,14 @@ svg{width:20px;height:20px}
 .crmInvite .primaryButton svg{width:16px;height:16px}
 .resultsGrid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .resultCard{border:1px solid #34383d;background:linear-gradient(180deg,#15181b,#101215);border-radius:15px;padding:14px;display:grid;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.12)}
-.resultTop{display:flex;align-items:center;gap:10px}
+.resultTop{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
 .companyMark{width:46px;height:46px;flex:0 0 auto;border:1px solid #55470b;border-radius:11px;background:#211d08;color:var(--gold);display:grid;place-items:center}
 .companyMark.large{width:64px;height:64px}
 .companyMark.large svg{width:28px;height:28px}
-.resultTitle{min-width:0;flex:1}
-.resultTitle h3{margin:0 0 3px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.resultTitle span{font-size:12px;color:var(--muted)}
-.potentialTag{font-size:10px;font-weight:800;border:1px solid #444;border-radius:999px;padding:4px 7px}
+.resultTitle{min-width:0;flex:1;width:0;overflow:hidden}
+.resultTitle h3{margin:0 0 3px;font-size:16px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resultTitle span{display:block;max-width:100%;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.potentialTag{flex:0 0 auto;font-size:10px;font-weight:800;border:1px solid #444;border-radius:999px;padding:4px 7px}
 .potentialTag.high{color:#91e3a2;border-color:#2f6c3d;background:#112619}
 .potentialTag.medium{color:#ffe166;border-color:#67590d;background:#211d07}
 .potentialTag.low{color:#aeb4bd;background:#1a1d21}
