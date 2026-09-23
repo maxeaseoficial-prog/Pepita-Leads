@@ -69,10 +69,84 @@ export async function getRfbApiStatus() {
   return rpc<RfbApiStatus>("pepita_rfb_status",{});
 }
 
+async function matchRfbEdge(
+  state:string,
+  city:string,
+  leads:CompanyLead[],
+  cnaes:string[]
+):Promise<RfbApiMatch[]> {
+  try {
+    const response=await fetch(`${baseUrl()}/functions/v1/rfb-match`,{
+      method:"POST",
+      headers:{
+        "content-type":"application/json",
+        "accept":"application/json"
+      },
+      body:JSON.stringify({
+        uf:state,
+        city,
+        cnaes:cnaes.slice(0,8),
+        leads:leads.slice(0,20).map(lead=>({
+          name:lead.tradeName||lead.legalName,
+          phone:lead.phone,
+          address:lead.address
+        }))
+      }),
+      cache:"no-store",
+      signal:AbortSignal.timeout(55_000)
+    });
+
+    if(!response.ok) return [];
+    const body=await response.json() as {
+      matches?:Array<{
+        index:number;
+        confidence:number;
+        record?:Record<string,unknown>;
+      }>;
+    };
+
+    return (body.matches||[]).flatMap(match=>{
+      const record=match.record||{};
+      const cnpj=String(record.cnpj||"").replace(/\D/g,"");
+      if(!cnpj) return [];
+
+      const partners=Array.isArray(record.partners)
+        ? record.partners as Partner[]
+        : [];
+
+      return [{
+        index:Number(match.index),
+        cnpj,
+        legalName:String(record.legalName||""),
+        tradeName:record.tradeName?String(record.tradeName):null,
+        statusCode:record.status?String(record.status):null,
+        openingDate:record.openingDate?String(record.openingDate):null,
+        cnae:record.cnae?String(record.cnae):null,
+        category:record.category?String(record.category):null,
+        capitalSocialCents:record.capitalSocialCents==null?null:Number(record.capitalSocialCents),
+        companySizeCode:null,
+        matrixBranch:record.matrixBranch?String(record.matrixBranch):"Não informado",
+        city:record.city?String(record.city):null,
+        state:record.state?String(record.state):null,
+        address:record.address?String(record.address):null,
+        postalCode:record.postalCode?String(record.postalCode):null,
+        registeredPhone:record.registeredPhone?String(record.registeredPhone):null,
+        registeredPhone2:record.registeredPhone2?String(record.registeredPhone2):null,
+        email:record.email?String(record.email):null,
+        partners,
+        confidence:Number(match.confidence)||0
+      } satisfies RfbApiMatch];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function matchRfbBatch(
   state:string,
   city:string,
-  leads:CompanyLead[]
+  leads:CompanyLead[],
+  cnaes:string[]=[]
 ) {
   const payload=leads.slice(0,20).map(lead=>({
     tradeName:lead.tradeName,
@@ -82,11 +156,24 @@ export async function matchRfbBatch(
     postalCode:lead.postalCode
   }));
 
-  return rpc<RfbApiMatch[]>("pepita_rfb_match_batch",{
+  const cached=await rpc<RfbApiMatch[]>("pepita_rfb_match_batch",{
     p_state:state,
     p_city:city,
     p_leads:payload
-  });
+  })||[];
+
+  const matchedIndexes=new Set(cached.map(match=>Number(match.index)));
+  if(matchedIndexes.size>=Math.min(leads.length,20)) return cached;
+
+  const live=await matchRfbEdge(state,city,leads,cnaes);
+  const merged=new Map<number,RfbApiMatch>();
+
+  for(const match of cached) merged.set(Number(match.index),match);
+  for(const match of live) {
+    if(!merged.has(Number(match.index))) merged.set(Number(match.index),match);
+  }
+
+  return [...merged.values()].sort((a,b)=>a.index-b.index);
 }
 
 export async function getRfbApiCompanyDetail(cnpj:string) {
