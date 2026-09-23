@@ -56,6 +56,7 @@ export type CompanyLead = {
     instagram?: SocialMatch | null;
   };
   potential: Potential;
+  partners?: Partner[];
 };
 
 export type SearchResponse = {

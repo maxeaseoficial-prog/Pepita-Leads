@@ -3,7 +3,8 @@ import { formatCnpj, normalizeText, sizeLabel, yearsBetween } from "./format";
 import { resolveNiche } from "./niches";
 import { scoreCompany } from "./scoring";
 import { enrichPlace, instagramFromWebsite } from "./google-places";
-import type { CompanyLead, SearchPayload, SearchResponse } from "./types";
+import type { CompanyLead, Partner, SearchPayload, SearchResponse } from "./types";
+import { loadPartnersByBase } from "./rfb-enrichment";
 
 const SIZE_MAP: Record<string,string> = {
   MICRO: "01",
@@ -21,7 +22,7 @@ function validate(input: SearchPayload): SearchPayload {
   return input;
 }
 
-function toLead(row: any): CompanyLead {
+function toLead(row: any,partners:Partner[]=[]): CompanyLead {
   const potential = scoreCompany(row);
   const address = [
     row.street_type,row.street,row.number,row.complement,row.neighborhood
@@ -57,7 +58,8 @@ function toLead(row: any): CompanyLead {
     mapsUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
     website: null,
     social: { instagram: null },
-    potential
+    potential,
+    partners
   };
 }
 
@@ -116,7 +118,8 @@ export async function searchCompanies(raw: SearchPayload): Promise<SearchRespons
 
   const sql = getSql();
   const rows = await sql.query(query, params);
-  let candidates = rows.map(toLead);
+  const partnerMap=await loadPartnersByBase(rows.map((row:any)=>String(row.cnpj_base)));
+  let candidates = rows.map((row:any)=>toLead(row,partnerMap.get(String(row.cnpj_base))||[]));
 
   if (input.minPotential === "HIGH") {
     candidates = candidates.filter(x => x.potential.level === "HIGH");

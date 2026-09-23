@@ -1115,6 +1115,10 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const fromMaps=!item.cnpj;
   const instagramUrl=item.social?.instagram?.url||null;
   const websiteUrl=item.website&&!/^(https?:\/\/)?(www\.)?instagram\.com\//i.test(item.website)?item.website:null;
+  const partnerNames=(item.partners||[]).map(partner=>partner.name);
+  const partnerSummary=partnerNames.length
+    ? partnerNames.length<=2?partnerNames.join(" · "):`${partnerNames.slice(0,2).join(" · ")} +${partnerNames.length-2}`
+    : "Não localizado";
   return (
     <article className="resultCard">
       <div className="resultTop">
@@ -1122,16 +1126,16 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
         <div className="resultTitle"><h3>{item.tradeName || item.legalName}</h3><span>{item.category || item.cnae} · {item.city}/{item.state}</span></div>
         <span className={`potentialTag ${item.potential.level.toLowerCase()}`}>{potentialLabel(item.potential.level)}</span>
       </div>
-      <div className="tagRow">{fromMaps?<><span>Google Maps</span><span>Consulta ao vivo</span></>:<><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}</div>
+      <div className="tagRow">{fromMaps?<><span>Google Maps</span><span>CNPJ não confirmado</span></>:<><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}</div>
       <div className="infoGrid">
-        {fromMaps?<Info label="Endereço" value={item.address||"Não informado"}/>:<>
-          <Info label="CNPJ" value={item.cnpjFormatted||"Não disponível nesta fonte"}/>
-          <Info label="Capital social" value={money(item.capitalSocialCents)}/>
-        </>}
-        <Info label="Telefone" value={item.phone || "Não informado"}/>
-        <Info label="E-mail" value={item.email || "Não informado"}/>
+        <Info label="CNPJ" value={item.cnpjFormatted||"Não localizado"}/>
+        {!fromMaps&&<Info label="Capital social" value={money(item.capitalSocialCents)}/>}
+        <Info label="Sócios" value={partnerSummary}/>
+        <Info label={item.cnpj?"Telefone cadastral":"Telefone público"} value={item.phone || "Não informado"}/>
+        <Info label={item.cnpj?"E-mail cadastral":"E-mail"} value={item.email || "Não informado"}/>
         <Info label="Site" value={websiteUrl || "Não encontrado"}/>
         <Info label="Instagram" value={instagramUrl || "Não confirmado"}/>
+        {fromMaps&&<Info label="Endereço" value={item.address||"Não informado"}/>}
       </div>
       <div className="cardActions">
         {item.mapsUrl && <a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}

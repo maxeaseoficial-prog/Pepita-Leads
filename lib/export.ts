@@ -4,6 +4,7 @@ export const EXPORT_COLUMNS = [
   ["company","Empresa",(r:CompanyLead)=>r.tradeName || r.legalName],
   ["legalName","Razão social",(r:CompanyLead)=>r.legalName],
   ["cnpj","CNPJ",(r:CompanyLead)=>r.cnpjFormatted || r.cnpj],
+  ["partners","Sócios",(r:CompanyLead)=>(r.partners||[]).map(partner=>partner.name).join(" | ")],
   ["category","Categoria",(r:CompanyLead)=>r.category || ""],
   ["cnae","CNAE",(r:CompanyLead)=>r.cnae || ""],
   ["companySize","Porte",(r:CompanyLead)=>r.companySize || ""],
