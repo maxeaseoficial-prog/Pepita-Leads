@@ -90,13 +90,10 @@ export async function setUserPlanMetadata(userId:string,plan:"free"|"basic"|"unl
   }
 
   const sql=getSql();
-  const rows=await sql.query(`
-    update auth.users
-    set raw_app_meta_data=coalesce(raw_app_meta_data,'{}'::jsonb)||jsonb_build_object('pepita_plan',$2::text),
-        updated_at=now()
-    where id::text=$1
-    returning id
-  `,[userId,plan]);
+  const rows=await sql.query(
+    "select public.pepita_admin_set_user_plan($1::uuid,$2::text) as updated",
+    [userId,plan]
+  ) as unknown as Array<{updated?:boolean}>;
 
-  if(!rows.length) throw new Error("USER_NOT_FOUND");
+  if(!rows[0]?.updated) throw new Error("USER_NOT_FOUND");
 }
