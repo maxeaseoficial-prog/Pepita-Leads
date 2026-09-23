@@ -1,5 +1,5 @@
 import { getSql } from "./db";
-import { runCompanySearch } from "./search-runner";
+import { normalizeSearchPayload, runCompanySearch } from "./search-runner";
 import { workspaceForRequest, GUEST_WORKSPACE } from "./supabase/server-auth";
 import type { SearchPayload, SearchResponse } from "./types";
 
@@ -26,14 +26,27 @@ function toIso(value:unknown) {
   return value?new Date(String(value)).toISOString():null;
 }
 
+function parseDbJson<T>(value:unknown,fallback:T):T {
+  if(value===null||value===undefined) return fallback;
+  if(typeof value==="string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  if(typeof value==="object") return value as T;
+  return fallback;
+}
+
 function mapJob(row:Row):SearchJob {
   return {
     id:String(row.id),
     ownerKey:String(row.owner_key),
     query:String(row.query_text||""),
-    payload:(row.payload||{}) as SearchPayload,
+    payload:normalizeSearchPayload(row.payload),
     status:String(row.status||"pending") as SearchJobStatus,
-    result:(row.result||null) as SearchResponse|null,
+    result:parseDbJson<SearchResponse|null>(row.result,null),
     error:row.error_message?String(row.error_message):null,
     createdAt:new Date(String(row.created_at)).toISOString(),
     startedAt:toIso(row.started_at),
@@ -53,12 +66,16 @@ export async function searchOwnerForRequest(request:Request) {
 }
 
 export async function createSearchJob(ownerKey:string,query:string,payload:SearchPayload) {
+  const normalized=normalizeSearchPayload(payload);
+  if(!normalized.niche) throw new Error("Informe o nicho.");
+  if(!normalized.city) throw new Error("Informe a cidade.");
+
   const sql=getSql();
   const rows=await sql.query(`
     insert into public.search_jobs(owner_key,query_text,payload,status)
     values($1,$2,$3::jsonb,'pending')
     returning *
-  `,[ownerKey,query,JSON.stringify(payload)]) as unknown as Row[];
+  `,[ownerKey,query,JSON.stringify(normalized)]) as unknown as Row[];
 
   if(!rows[0]) throw new Error("SEARCH_JOB_CREATE_FAILED");
   return mapJob(rows[0]);
@@ -83,8 +100,7 @@ export async function processSearchJob(id:string) {
   if(!claimed[0]) return;
 
   try {
-    const payload=(claimed[0].payload||{}) as SearchPayload;
-    const result=await runCompanySearch(payload);
+    const result=await runCompanySearch(claimed[0].payload);
     await sql.query(`
       update public.search_jobs
       set status='completed',
