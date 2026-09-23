@@ -161,7 +161,7 @@ function inferLocation(text:string,current?:SearchPayload|null) {
   let state=explicitUf?.[1].toUpperCase()||current?.state||"";
   let city=current?.city||"";
 
-  const location=text.match(/\b(?:na\s+cidade\s+de|em)\s+(.+?)(?=\s+(?:com|sem|capital|mais|somente|so|só)\b|$)/i);
+  const location=text.match(/\b(?:na\s+cidade\s+de|em)\s+(.+?)(?=\s*[,;]|\s+(?:com|sem|capital|mais|somente|so|só|que)\b|$)/i);
   if(location) {
     const raw=location[1].trim().replace(/[,.]+$/,"").trim();
     const parsed=splitLocation(raw);
@@ -212,6 +212,22 @@ function looksLikeSearch(n:string) {
     (hasLocation&&(hasKnownNiche||directNicheAndLocation));
 }
 
+function asksWithoutSite(n:string) {
+  return /(?:\bsem\s+(?:site|website)\b|\b(?:que\s+)?nao\s+(?:tem|tenham?|possui|possuem|possua|possuam)\s+(?:um\s+)?(?:site|website)\b|\b(?:site|website)\s+(?:nao\s+)?(?:tem|possui)\b)/.test(n);
+}
+
+function hasFilterDirective(n:string) {
+  return asksWithoutSite(n)
+    || /\b(?:com|sem)\s+telefone\b/.test(n)
+    || /\b(?:com|sem)\s+e-?mail\b/.test(n)
+    || /\b(?:somente|so)\s+matriz\b/.test(n)
+    || /\b(?:buscar|com)\s+instagram\b/.test(n)
+    || /\b(?:microempresa|micro|pequeno porte|epp|demais)\b/.test(n)
+    || /\bcapital(?: social)?\b/.test(n)
+    || /\b(?:mais de|pelo menos|minimo de|com)\s*\d+\s*\+?\s*anos?\b/.test(n)
+    || /\bpotencial\s+(?:alto|medio)\b/.test(n);
+}
+
 function applyFilters(text:string,payload:SearchPayload) {
   const n=normalize(text);
   const out=structuredClone(payload);
@@ -220,8 +236,8 @@ function applyFilters(text:string,payload:SearchPayload) {
   if(/sem telefone/.test(n)) out.hasPhone=false;
   if(/com e-?mail|que tenham e-?mail/.test(n)) out.hasEmail=true;
   if(/sem e-?mail/.test(n)) out.hasEmail=false;
-  if(/somente matriz|so matriz|só matriz/.test(n)) out.matrixOnly=true;
-  if(/sem site|somente sem site/.test(n)) out.onlyWithoutSite=true;
+  if(/somente matriz|so matriz/.test(n)) out.matrixOnly=true;
+  if(asksWithoutSite(n)) out.onlyWithoutSite=true;
   if(/buscar instagram|com instagram/.test(n)) out.findInstagram=true;
 
   const sizes:SearchPayload["companySizes"]=[];
@@ -275,7 +291,12 @@ export function parseChatCommand(
   if(/detalhe|dossie/.test(n)) return {type:"details"};
 
   const isSearch=looksLikeSearch(n);
-  const isRefine=Boolean(/(agora|somente|so as|filtre|deixe)/.test(n)&&currentSearch);
+  const isRefine=Boolean(
+    currentSearch&&(
+      /\b(?:agora|somente|so|filtre|filtrar|deixe|apenas)\b/.test(n)
+      || hasFilterDirective(n)
+    )
+  );
   const isPendingContinuation=Boolean(pendingSearch&&(isSearch||canonicalNiche(text)||/\b(?:em|na cidade de)\s+/.test(n)));
 
   if(isSearch||isRefine||isPendingContinuation) {
