@@ -274,6 +274,7 @@ export function PepitaApp() {
   const searchPollGenerationRef=useRef(0);
   const activeSearchJobRef=useRef<string|null>(null);
   const handledSearchJobsRef=useRef<Set<string>>(new Set());
+  const searchNotificationAudioRef=useRef<HTMLAudioElement|null>(null);
 
   useEffect(()=>{
     const syncView=()=>setView(viewFromHash(window.location.hash));
@@ -358,6 +359,17 @@ export function PepitaApp() {
     if(!authReady) return;
     void resumeLatestSearch();
   },[authReady,accessToken,authUser?.id]);
+
+  useEffect(()=>{
+    const audio=new Audio("/pepita/results-found.mp3");
+    audio.preload="auto";
+    audio.volume=.88;
+    searchNotificationAudioRef.current=audio;
+    return ()=>{
+      audio.pause();
+      searchNotificationAudioRef.current=null;
+    };
+  },[]);
 
   useEffect(()=>()=>{
     searchPollGenerationRef.current+=1;
@@ -710,6 +722,61 @@ export function PepitaApp() {
     } catch {}
   }
 
+  function prepareSearchNotifications() {
+    if("Notification" in window&&Notification.permission==="default") {
+      void Notification.requestPermission().catch(()=>undefined);
+    }
+
+    const audio=searchNotificationAudioRef.current;
+    if(!audio) return;
+
+    const previousVolume=audio.volume;
+    audio.volume=0;
+    audio.currentTime=0;
+    void audio.play()
+      .then(()=>{
+        audio.pause();
+        audio.currentTime=0;
+        audio.volume=previousVolume;
+      })
+      .catch(()=>{audio.volume=previousVolume;});
+  }
+
+  function notifySearchFinished(job:SearchJobDto) {
+    if(!(document.hidden||!document.hasFocus())) return;
+    if(job.status!=="completed"||!job.result) return;
+
+    const count=job.result.returned;
+    const title=count>0?"Resultados encontrados":"Busca concluída";
+    const body=count>0
+      ? `A Pepita encontrou ${count} ${count===1?"empresa":"empresas"}. Clique para ver os resultados.`
+      : "A Pepita terminou a busca, mas não encontrou empresas compatíveis.";
+
+    if("Notification" in window&&Notification.permission==="granted") {
+      try {
+        const notification=new Notification(title,{
+          body,
+          icon:"/pepita/icon-128.png",
+          tag:`pepita-search-${job.id}`,
+          silent:true
+        });
+        notification.onclick=()=>{
+          window.focus();
+          navigate("results");
+          notification.close();
+        };
+      } catch {}
+    }
+
+    const audio=searchNotificationAudioRef.current;
+    if(audio) {
+      audio.muted=false;
+      audio.volume=.88;
+      audio.currentTime=0;
+      void audio.play().catch(()=>undefined);
+    }
+  }
+
   async function finishSearchJob(job:SearchJobDto,generation:number) {
     if(searchPollGenerationRef.current!==generation) return;
     if(handledSearchJobsRef.current.has(job.id)) return;
@@ -717,6 +784,7 @@ export function PepitaApp() {
     activeSearchJobRef.current=null;
 
     if(job.status==="completed"&&job.result) {
+      notifySearchFinished(job);
       setCurrentSearch(job.payload);
       setResults(job.result.results);
       setDataset(job.result.dataset);
@@ -793,6 +861,7 @@ export function PepitaApp() {
 
   async function executeSearch(payload:SearchPayload,query:string) {
     const enforcedPayload=enforceRequiredLeadFilters(payload);
+    prepareSearchNotifications();
     setWorking(true);
     setCurrentSearch(enforcedPayload);
 
