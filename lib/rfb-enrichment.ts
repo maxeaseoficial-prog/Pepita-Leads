@@ -154,7 +154,8 @@ export async function enrichMapResultsFromRfb(results:CompanyLead[],input:Search
       const score=matchScore(lead,row);
       if(score>bestScore) {best=row;bestScore=score;}
     }
-    if(best&&bestScore>=.66) {
+    const threshold=municipalitiesReady?.66:.95;
+    if(best&&bestScore>=threshold) {
       matched.set(index,best);
       usedCnpjs.add(String(best.cnpj));
     }
