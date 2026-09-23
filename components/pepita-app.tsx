@@ -45,11 +45,27 @@ type VoiceState = "idle"|"starting"|"listening"|"processing";
 type AuthMode = "login"|"signup";
 type PlanId = "free"|"basic"|"unlimited";
 type PlanUsage = {freeUsed:number;basicUsed:number;basicPeriod:string};
+type PlanConfig = {
+  id:PlanId;
+  name:string;
+  priceCents:number;
+  searchLimit:number|null;
+  resultsPerSearch:number;
+  resultLimit:number|null;
+  popular:boolean;
+};
 
 const VIEWS:View[]=["chat","results","crm","plans","settings"];
-const PLAN_NAMES:Record<PlanId,string>={free:"Grátis",basic:"Basic",unlimited:"Unlimited"};
-const PLAN_PRICES:Record<PlanId,string>={free:"R$ 0",basic:"R$ 29,90/mês",unlimited:"R$ 99,90/mês"};
-const PLAN_SEARCH_LIMITS:Record<PlanId,number|null>={free:3,basic:30,unlimited:null};
+const DEFAULT_PLAN_CONFIGS:PlanConfig[]=[
+  {id:"free",name:"Grátis",priceCents:0,searchLimit:3,resultsPerSearch:20,resultLimit:60,popular:false},
+  {id:"basic",name:"Basic",priceCents:2990,searchLimit:30,resultsPerSearch:20,resultLimit:600,popular:true},
+  {id:"unlimited",name:"Unlimited",priceCents:9990,searchLimit:null,resultsPerSearch:20,resultLimit:null,popular:false}
+];
+
+function planPriceLabel(plan:PlanConfig) {
+  if(plan.id==="free") return "R$ 0";
+  return `R$ ${new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(plan.priceCents/100)}/mês`;
+}
 
 function usageMonth() {
   const now=new Date();
@@ -196,6 +212,7 @@ export function PepitaApp() {
   const [dataset,setDataset]=useState<SearchResponse["dataset"]|null>(null);
   const [history,setHistory]=useState<HistoryItem[]>([]);
   const [planUsage,setPlanUsage]=useState<PlanUsage>(()=>normalizePlanUsage(null));
+  const [planConfigs,setPlanConfigs]=useState<PlanConfig[]>(DEFAULT_PLAN_CONFIGS);
   const [working,setWorking]=useState(false);
   const [structuredOpen,setStructuredOpen]=useState(false);
   const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch());
@@ -236,6 +253,9 @@ export function PepitaApp() {
     window.addEventListener("hashchange",syncView);
     setSidebarCollapsed(localStorage.getItem("pepita.sidebar-collapsed")==="true");
     refreshHealth();
+    void fetchJson<{plans:PlanConfig[]}>("/api/plans")
+      .then(data=>{if(Array.isArray(data.plans)&&data.plans.length===3)setPlanConfigs(data.plans);})
+      .catch(()=>undefined);
     return ()=>window.removeEventListener("hashchange",syncView);
   },[]);
 
@@ -747,8 +767,9 @@ export function PepitaApp() {
   const accountAvatar=String(authUser?.user_metadata?.avatar_url||authUser?.user_metadata?.picture||"");
   const accountInitial=(authUser?.email?.trim().charAt(0)||"?").toUpperCase();
   const currentPlan=currentPlanForUser(authUser);
+  const currentPlanConfig=planConfigs.find(plan=>plan.id===currentPlan)||DEFAULT_PLAN_CONFIGS[0];
   const normalizedUsage=normalizePlanUsage(planUsage);
-  const searchLimit=PLAN_SEARCH_LIMITS[currentPlan];
+  const searchLimit=currentPlanConfig.searchLimit;
   const searchesUsed=currentPlan==="free"?normalizedUsage.freeUsed:currentPlan==="basic"?normalizedUsage.basicUsed:0;
   const searchesRemaining=searchLimit===null?null:Math.max(0,searchLimit-searchesUsed);
   const usageRatio=searchLimit===null?1:Math.max(0,Math.min(1,(searchesRemaining||0)/searchLimit));
@@ -758,8 +779,8 @@ export function PepitaApp() {
       ?"Ainda resta 1 pesquisa"
       : `Ainda restam ${searchesRemaining} pesquisas`;
   const usageDetail=searchLimit===null
-    ? `${PLAN_NAMES[currentPlan]} · uso ilimitado`
-    : `${PLAN_NAMES[currentPlan]} · ${searchesUsed} de ${searchLimit} usadas`;
+    ? `${currentPlanConfig.name} · uso ilimitado`
+    : `${currentPlanConfig.name} · ${searchesUsed} de ${searchLimit} usadas`;
   const usageStyle={"--usage-angle":`${usageRatio*360}deg`} as CSSProperties;
 
   return (
@@ -927,11 +948,12 @@ export function PepitaApp() {
             <CrmBoard refreshKey={crmRefreshKey} accessToken={accessToken}/>
           </div>
         )}
-        {view==="plans" && <PlansView currentPlan={currentPlan}/>}
+        {view==="plans" && <PlansView currentPlan={currentPlan} plans={planConfigs}/>}
 
         {view==="settings" && (
           <SettingsView
             currentPlan={currentPlan}
+            currentPlanConfig={currentPlanConfig}
             prefs={prefs}
             setPrefs={updatePrefs}
             results={results}
@@ -1152,7 +1174,7 @@ function Info({label,value}:{label:string;value:string}) {
   return <div className="infoBox"><span>{label}</span><strong title={value}>{value}</strong></div>;
 }
 
-function PlansView({currentPlan}:{currentPlan:PlanId}) {
+function PlansView({currentPlan,plans}:{currentPlan:PlanId;plans:PlanConfig[]}) {
   const commonFeatures=[
     "CRM completo",
     "CNPJ e dados PJ",
@@ -1165,37 +1187,11 @@ function PlansView({currentPlan}:{currentPlan:PlanId}) {
     "Exportação CSV/XLSX"
   ];
 
-  const plans:Array<{
-    id:PlanId;name:string;price:string;suffix:string;description:string;highlights:string[];popular:boolean;
-  }>=[
-    {
-      id:"free",
-      name:"Grátis",
-      price:"0",
-      suffix:"para sempre",
-      description:"Experimente a Pepita e descubra o poder da prospecção inteligente.",
-      highlights:["3 pesquisas","Até 20 empresas por pesquisa","Até 60 empresas"],
-      popular:false
-    },
-    {
-      id:"basic",
-      name:"Basic",
-      price:"29,90",
-      suffix:"/mês",
-      description:"Para quem está começando a prospectar todos os meses.",
-      highlights:["30 pesquisas por mês","Até 20 empresas por pesquisa","Até 600 empresas por mês"],
-      popular:true
-    },
-    {
-      id:"unlimited",
-      name:"Unlimited",
-      price:"99,90",
-      suffix:"/mês",
-      description:"Para quem usa prospecção como parte da operação.",
-      highlights:["Pesquisas ilimitadas*","Até 20 empresas por pesquisa","Resultados ilimitados*"],
-      popular:false
-    }
-  ];
+  const descriptions:Record<PlanId,string>={
+    free:"Experimente a Pepita e descubra o poder da prospecção inteligente.",
+    basic:"Para quem está começando a prospectar todos os meses.",
+    unlimited:"Para quem usa prospecção como parte da operação."
+  };
 
   return (
     <div className="viewScroll plansView">
@@ -1217,19 +1213,28 @@ function PlansView({currentPlan}:{currentPlan:PlanId}) {
       <section className="plansGrid">
         {plans.map(plan=>{
           const isCurrent=plan.id===currentPlan;
+          const displayPrice=plan.id==="free"
+            ?"0"
+            :new Intl.NumberFormat("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(plan.priceCents/100);
+          const highlights=[
+            plan.searchLimit===null?"Pesquisas ilimitadas*":plan.id==="free"?`${plan.searchLimit} pesquisas`:`${plan.searchLimit} pesquisas por mês`,
+            `Até ${plan.resultsPerSearch} empresas por pesquisa`,
+            plan.resultLimit===null?"Resultados ilimitados*":plan.id==="free"?`Até ${plan.resultLimit} empresas`:`Até ${plan.resultLimit} empresas por mês`
+          ];
+
           return (
             <article className={`planCard ${plan.popular?"popular":""} ${isCurrent?"currentPlan":""}`} key={plan.id}>
               {plan.popular&&<div className="popularBadge">Mais popular</div>}
               {isCurrent&&<div className="currentPlanBadge">Seu plano</div>}
               <div className="planCardHeader">
                 <h3>{plan.name}</h3>
-                <p>{plan.description}</p>
+                <p>{descriptions[plan.id]}</p>
               </div>
 
               <div className="planPrice">
                 <span>R$</span>
-                <strong>{plan.price}</strong>
-                <small>{plan.suffix}</small>
+                <strong>{displayPrice}</strong>
+                <small>{plan.id==="free"?"para sempre":"/mês"}</small>
               </div>
 
               <button
@@ -1244,7 +1249,7 @@ function PlansView({currentPlan}:{currentPlan:PlanId}) {
               <div className="planDivider"/>
 
               <ul className="planHighlights">
-                {plan.highlights.map(item=><li key={item}>{item}</li>)}
+                {highlights.map(item=><li key={item}>{item}</li>)}
               </ul>
 
               <div className="planResources">
@@ -1270,9 +1275,10 @@ function PlansView({currentPlan}:{currentPlan:PlanId}) {
 }
 
 function SettingsView({
-  currentPlan,prefs,setPrefs,results,exportFormat,setExportFormat,exportColumns,setExportColumns,exportDone,onExport,user,authConfigured,onOpenAuth
+  currentPlan,currentPlanConfig,prefs,setPrefs,results,exportFormat,setExportFormat,exportColumns,setExportColumns,exportDone,onExport,user,authConfigured,onOpenAuth
 }:{
   currentPlan:PlanId;
+  currentPlanConfig:PlanConfig;
   prefs:Prefs;setPrefs:(x:Prefs)=>void;
   results:CompanyLead[];
   exportFormat:"csv"|"xlsx";
@@ -1325,7 +1331,7 @@ function SettingsView({
       <div className="sectionHeader"><div><p className="eyebrow">CONFIGURAÇÕES</p><h2>Preferências</h2><p>Defina como a Pepita deve trabalhar por padrão.</p></div><img className="sectionPepita" src="/pepita/documents.png" alt=""/></div>
       <div className="settingsGrid">
         <div className="panelCard accountPanel">
-          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano {PLAN_NAMES[currentPlan]}</span></div>
+          <div className="accountPanelHeading"><div><h3>Conta</h3><p>{user?"Seus dados ficam vinculados a esta conta.":"Entre para manter seus dados separados e acessar sua conta."}</p></div><span className="planBadge">Plano {currentPlanConfig.name}</span></div>
           {!authConfigured?<p className="accountNotice">A autenticação ainda precisa das chaves públicas do Supabase neste ambiente.</p>:!user?(
             <div className="accountGuestActions"><button className="ghostButton" onClick={()=>onOpenAuth("login")}>Entrar</button><button className="primaryButton" onClick={()=>onOpenAuth("signup")}>Criar conta grátis</button></div>
           ):(
@@ -1355,9 +1361,9 @@ function SettingsView({
           <div className="subscriptionCurrent">
             <div>
               <span>Plano atual</span>
-              <strong>{PLAN_NAMES[currentPlan]}</strong>
+              <strong>{currentPlanConfig.name}</strong>
             </div>
-            <strong>{PLAN_PRICES[currentPlan]}</strong>
+            <strong>{planPriceLabel(currentPlanConfig)}</strong>
           </div>
           {currentPlan==="free"?(
             <p className="subscriptionNote">Você não possui uma assinatura paga ativa.</p>
