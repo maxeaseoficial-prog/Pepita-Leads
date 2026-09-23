@@ -1,5 +1,6 @@
 import { formatCnpj, normalizeText, sizeLabel, yearsBetween } from "./format";
-import { getRfbDatasetStatus, getRfbSql, rfbTable } from "./rfb-db";
+import { getRfbDatasetStatus, getRfbSql, hasDedicatedRfbDatabase, rfbTable } from "./rfb-db";
+import { matchRfbBatch } from "./rfb-api";
 import { scoreCompany } from "./scoring";
 import type { CompanyLead, Partner, SearchPayload } from "./types";
 
@@ -204,6 +205,47 @@ export async function loadPartnersByBase(bases:string[]) {
   return map;
 }
 
+async function enrichMapResultsFromRfbApi(
+  results:CompanyLead[],
+  input:SearchPayload
+):Promise<CompanyLead[]> {
+  const matches=await matchRfbBatch(input.state,input.city,results);
+  if(!matches?.length) return results;
+
+  const byIndex=new Map(matches.map(match=>[Number(match.index),match]));
+
+  return results.map((lead,index)=>{
+    const match=byIndex.get(index);
+    if(!match) return lead;
+
+    return {
+      ...lead,
+      cnpj:match.cnpj,
+      cnpjFormatted:formatCnpj(match.cnpj),
+      legalName:match.legalName||lead.legalName,
+      tradeName:match.tradeName||lead.tradeName,
+      category:match.category||lead.category,
+      cnae:match.cnae||lead.cnae,
+      statusCode:match.statusCode||lead.statusCode,
+      openingDate:match.openingDate||lead.openingDate,
+      ageYears:yearsBetween(match.openingDate||null),
+      companySizeCode:match.companySizeCode||lead.companySizeCode,
+      companySize:sizeLabel(match.companySizeCode||null),
+      capitalSocialCents:match.capitalSocialCents??lead.capitalSocialCents,
+      matrixBranch:match.matrixBranch||lead.matrixBranch,
+      city:match.city||lead.city,
+      state:match.state||lead.state,
+      address:match.address||lead.address,
+      postalCode:match.postalCode||lead.postalCode,
+      registeredPhone:match.registeredPhone||null,
+      registeredPhone2:match.registeredPhone2||null,
+      phone:lead.phone||match.registeredPhone||match.registeredPhone2||null,
+      email:match.email||lead.email,
+      partners:Array.isArray(match.partners)?match.partners:(lead.partners||[])
+    };
+  });
+}
+
 export async function enrichMapResultsFromRfb(
   results:CompanyLead[],
   input:SearchPayload
@@ -219,6 +261,10 @@ export async function enrichMapResultsFromRfb(
     &&!status.states.includes(input.state)
   ) {
     return results;
+  }
+
+  if(!hasDedicatedRfbDatabase()) {
+    return enrichMapResultsFromRfbApi(results,input);
   }
 
   const matched=new Map<number,Row>();
