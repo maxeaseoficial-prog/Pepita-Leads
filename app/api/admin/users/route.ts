@@ -17,19 +17,9 @@ export async function GET(request:NextRequest) {
     await requireAdmin(request);
     const sql=getSql();
 
-    const rows=await sql.query(`
-      select
-        id::text as id,
-        coalesce(email,'') as email,
-        coalesce(raw_user_meta_data,'{}'::jsonb) as user_meta,
-        coalesce(raw_app_meta_data,'{}'::jsonb) as app_meta,
-        created_at,
-        last_sign_in_at,
-        email_confirmed_at
-      from auth.users
-      order by created_at desc
-      limit 1000
-    `) as unknown as Array<Record<string,unknown>>;
+    const rows=await sql.query(
+      "select * from public.pepita_admin_list_users()"
+    ) as unknown as Array<Record<string,unknown>>;
 
     const ids=rows.map(row=>String(row.id));
     const billingByUser=new Map<string,{status:string;plan:string|null}>();
