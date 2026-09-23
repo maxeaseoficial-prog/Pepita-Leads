@@ -1403,11 +1403,12 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const ownerWhatsapp=item.ownerWhatsapp||"Não localizado";
   const companyName=item.tradeName||item.legalName;
 
-  const waHref=(digits:string)=>{
+  const internationalDigits=(digits:string)=>{
     if(!digits) return "";
-    const normalized=digits.startsWith("55")&&digits.length>=12?digits:`55${digits}`;
-    return `https://wa.me/${normalized}`;
+    return digits.startsWith("55")&&digits.length>=12?digits:`55${digits}`;
   };
+  const waHref=(digits:string)=>digits?`https://wa.me/${internationalDigits(digits)}`:"";
+  const telHref=(digits:string)=>digits?`tel:+${internationalDigits(digits)}`:"";
 
   return (
     <article className="resultCard">
@@ -1444,9 +1445,9 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
 
       <div className="cardActions">
         {item.mapsUrl&&<a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
-        {phoneDigits&&<a href={`tel:+55${phoneDigits.startsWith("55")?phoneDigits.slice(2):phoneDigits}`}><PhoneIcon/>Ligar empresa</a>}
+        {phoneDigits&&<a href={telHref(phoneDigits)}><PhoneIcon/>Ligar empresa</a>}
         {companyWhatsappDigits&&<a href={waHref(companyWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp empresa</a>}
-        {ownerPhoneDigits&&<a href={`tel:+55${ownerPhoneDigits.startsWith("55")?ownerPhoneDigits.slice(2):ownerPhoneDigits}`}><PhoneIcon/>Ligar responsável</a>}
+        {ownerPhoneDigits&&<a href={telHref(ownerPhoneDigits)}><PhoneIcon/>Ligar responsável</a>}
         {ownerWhatsappDigits&&<a href={waHref(ownerWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp responsável</a>}
         {websiteUrl&&<a href={websiteUrl} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
         {instagramUrl&&<a href={instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon/>Instagram</a>}
