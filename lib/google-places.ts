@@ -1,4 +1,5 @@
 import type { CompanyLead, SocialMatch } from "./types";
+import { extractCnpjCandidates } from "./company-registry";
 
 type Place = {
   id?: string;
@@ -33,6 +34,7 @@ export type WebsiteContacts = {
   whatsapp: string | null;
   phone: string | null;
   email: string | null;
+  cnpj: string | null;
 };
 
 function formatBrazilPhone(value: string | null) {
@@ -118,7 +120,7 @@ export async function enrichPlace(company: CompanyLead) {
 }
 
 export async function contactsFromWebsite(website: string): Promise<WebsiteContacts> {
-  const empty:WebsiteContacts={instagram:null,whatsapp:null,phone:null,email:null};
+  const empty:WebsiteContacts={instagram:null,whatsapp:null,phone:null,email:null,cnpj:null};
   try {
     const url = new URL(website);
     if (!["http:","https:"].includes(url.protocol)) return empty;
@@ -143,7 +145,8 @@ export async function contactsFromWebsite(website: string): Promise<WebsiteConta
       }:null,
       whatsapp:firstWhatsappFromHtml(html),
       phone:firstPhoneFromHtml(html),
-      email:firstEmailFromHtml(html)
+      email:firstEmailFromHtml(html),
+      cnpj:extractCnpjCandidates(html)[0]||null
     };
   } catch {
     return empty;
