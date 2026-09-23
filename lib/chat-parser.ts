@@ -320,14 +320,7 @@ export function parseChatCommand(
     if(q) filtered.quantity=q;
 
     if(!q&&!isRefine) {
-      const previousQuantity=!pendingSearch&&currentSearch?.quantity?currentSearch.quantity:null;
-      if(previousQuantity) {
-        filtered.quantity=previousQuantity;
-        return {type:"search",payload:filtered};
-      }
-
-      const {quantity:_,...pending}=filtered;
-      return {type:"ask-quantity",payload:pending};
+      filtered.quantity=20;
     }
 
     return {type:"search",payload:filtered};
