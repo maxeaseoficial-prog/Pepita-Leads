@@ -33,6 +33,7 @@ export type SocialMatch = {
 export type CompanyLead = {
   cnpj: string;
   cnpjFormatted: string;
+  cnpjCandidate?: string | null;
   legalName: string;
   tradeName: string | null;
   category: string | null;
