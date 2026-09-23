@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminSupabase, requireAdmin, setUserPlanMetadata } from "@/lib/admin-auth";
+import { requireAdmin, setUserPlanMetadata } from "@/lib/admin-auth";
 import { getSql } from "@/lib/db";
 
 export const runtime="nodejs";
@@ -15,27 +15,32 @@ function planOf(metadata:Record<string,unknown>|null|undefined):Plan {
 export async function GET(request:NextRequest) {
   try {
     await requireAdmin(request);
-    const supabase=adminSupabase();
-    const allUsers=[];
+    const sql=getSql();
 
-    for(let page=1;page<=10;page++) {
-      const {data,error}=await supabase.auth.admin.listUsers({page,perPage:100});
-      if(error) throw new Error(error.message);
-      allUsers.push(...data.users);
-      if(data.users.length<100) break;
-    }
+    const rows=await sql.query(`
+      select
+        id::text as id,
+        coalesce(email,'') as email,
+        coalesce(raw_user_meta_data,'{}'::jsonb) as user_meta,
+        coalesce(raw_app_meta_data,'{}'::jsonb) as app_meta,
+        created_at,
+        last_sign_in_at,
+        email_confirmed_at
+      from auth.users
+      order by created_at desc
+      limit 1000
+    `) as unknown as Array<Record<string,unknown>>;
 
-    const ids=allUsers.map(user=>user.id);
+    const ids=rows.map(row=>String(row.id));
     const billingByUser=new Map<string,{status:string;plan:string|null}>();
 
     if(ids.length) {
-      const sql=getSql();
-      const rows=await sql.query(
+      const billingRows=await sql.query(
         "select user_id,status,plan from billing_subscriptions where user_id=any($1::text[])",
         [ids]
       ) as unknown as Array<Record<string,unknown>>;
 
-      for(const row of rows) {
+      for(const row of billingRows) {
         billingByUser.set(String(row.user_id),{
           status:String(row.status||"inactive"),
           plan:row.plan?String(row.plan):null
@@ -43,17 +48,20 @@ export async function GET(request:NextRequest) {
       }
     }
 
-    const mapped=allUsers.map(user=>{
-      const plan=planOf(user.app_metadata as Record<string,unknown>);
+    const mapped=rows.map(row=>{
+      const userMeta=(row.user_meta&&typeof row.user_meta==="object"?row.user_meta:{}) as Record<string,unknown>;
+      const appMeta=(row.app_meta&&typeof row.app_meta==="object"?row.app_meta:{}) as Record<string,unknown>;
+      const plan=planOf(appMeta);
+
       return {
-        id:user.id,
-        email:user.email||"",
-        name:String(user.user_metadata?.name||user.user_metadata?.full_name||""),
+        id:String(row.id),
+        email:String(row.email||""),
+        name:String(userMeta.name||userMeta.full_name||""),
         plan,
-        createdAt:user.created_at,
-        lastSignInAt:user.last_sign_in_at||null,
-        emailConfirmed:Boolean(user.email_confirmed_at),
-        billing:billingByUser.get(user.id)||null
+        createdAt:String(row.created_at||""),
+        lastSignInAt:row.last_sign_in_at?String(row.last_sign_in_at):null,
+        emailConfirmed:Boolean(row.email_confirmed_at),
+        billing:billingByUser.get(String(row.id))||null
       };
     });
 
@@ -69,8 +77,7 @@ export async function GET(request:NextRequest) {
     const message=error instanceof Error?error.message:"Falha ao listar usuários.";
     const status=
       message==="ADMIN_AUTH_REQUIRED"?401:
-      message==="ADMIN_FORBIDDEN"?403:
-      message==="SUPABASE_SERVICE_ROLE_NOT_CONFIGURED"?503:500;
+      message==="ADMIN_FORBIDDEN"?403:500;
 
     return NextResponse.json({error:message,message},{status});
   }
