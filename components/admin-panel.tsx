@@ -36,7 +36,6 @@ type MeResponse={
   authenticated:boolean;
   admin:boolean;
   bootstrapAvailable:boolean;
-  adminSetupConfigured:boolean;
   serviceRoleConfigured:boolean;
   stripeSecretConfigured:boolean;
   stripeWebhookConfigured:boolean;
@@ -72,7 +71,6 @@ export function AdminPanel() {
   const [authMode,setAuthMode]=useState<"login"|"signup">("login");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
-  const [setupKey,setSetupKey]=useState("");
   const [authError,setAuthError]=useState("");
   const [authMessage,setAuthMessage]=useState("");
   const [loading,setLoading]=useState(false);
@@ -111,7 +109,18 @@ export function AdminPanel() {
     try {
       const next=await api<MeResponse>("/api/admin/me",session);
       setMe(next);
-      if(next.admin) await loadAdminData();
+
+      if(next.admin) {
+        await loadAdminData();
+        return;
+      }
+
+      if(next.authenticated&&next.bootstrapAvailable&&next.user&&session) {
+        const candidate=localStorage.getItem("pepita.admin-candidate-email");
+        if(candidate&&candidate===next.user.email) {
+          await bootstrap(session);
+        }
+      }
     } catch(error) {
       setMe(null);
       setAuthError(error instanceof Error?error.message:"Falha ao validar administrador.");
@@ -171,8 +180,15 @@ export function AdminPanel() {
       return;
     }
 
+    if(!me?.bootstrapAvailable) {
+      setAuthError("O cadastro administrativo já foi encerrado. Entre com a conta administradora.");
+      setLoading(false);
+      return;
+    }
+
+    const signupEmail=email.trim().toLowerCase();
     const {data,error}=await supabase.auth.signUp({
-      email:email.trim(),
+      email:signupEmail,
       password,
       options:{emailRedirectTo:window.location.origin+"/paineladm"}
     });
@@ -183,41 +199,37 @@ export function AdminPanel() {
       return;
     }
 
+    localStorage.setItem("pepita.admin-candidate-email",signupEmail);
+
     if(data.session) {
       setSession(data.session);
-      if(setupKey) await bootstrap(data.session);
-      else setAuthMessage("Conta criada. Informe a chave de configuração para ativar o primeiro administrador.");
+      await bootstrap(data.session);
     } else {
-      setAuthMessage("Conta criada. Confirme o e-mail, volte ao painel e entre para ativar o administrador.");
+      setAuthMessage("Conta criada. Confirme seu e-mail e depois entre no painel com o mesmo e-mail e senha.");
     }
 
     setLoading(false);
   }
 
   async function bootstrap(targetSession=session) {
-    if(!targetSession) {
-      setAuthError("Entre na conta antes de ativar o administrador.");
-      return;
-    }
-
-    if(!setupKey) {
-      setAuthError("Informe a chave de configuração administrativa.");
-      return;
-    }
+    if(!targetSession) return;
 
     setLoading(true);
     setAuthError("");
 
     try {
-      await api("/api/admin/bootstrap",targetSession,{
-        method:"POST",
-        body:JSON.stringify({setupKey})
-      });
-
-      setAuthMessage("Administrador ativado com sucesso.");
+      await api("/api/admin/bootstrap",targetSession,{method:"POST"});
+      localStorage.removeItem("pepita.admin-candidate-email");
+      setAuthMessage("Conta administradora criada com sucesso.");
       await loadMe();
     } catch(error) {
-      setAuthError(error instanceof Error?error.message:"Falha ao ativar administrador.");
+      const message=error instanceof Error?error.message:"Falha ao concluir o cadastro administrativo.";
+      if(message==="ADMIN_ALREADY_EXISTS") {
+        localStorage.removeItem("pepita.admin-candidate-email");
+        setAuthError("O primeiro administrador já foi cadastrado. Entre com a conta administradora.");
+      } else {
+        setAuthError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -294,7 +306,8 @@ export function AdminPanel() {
   }
 
   if(!session||!me?.admin) {
-    const canBootstrap=Boolean(session&&me?.bootstrapAvailable);
+    const signupAvailable=Boolean(me?.bootstrapAvailable);
+    const candidateEmail=typeof window!=="undefined"?localStorage.getItem("pepita.admin-candidate-email"):"";
 
     return (
       <div className={styles.authPage}>
@@ -305,10 +318,10 @@ export function AdminPanel() {
           </div>
 
           {!session&&<>
-            <div className={styles.authTabs}>
+            {signupAvailable&&<div className={styles.authTabs}>
               <button className={authMode==="login"?styles.active:""} onClick={()=>setAuthMode("login")}>Entrar</button>
               <button className={authMode==="signup"?styles.active:""} onClick={()=>setAuthMode("signup")}>Cadastrar</button>
-            </div>
+            </div>}
 
             <form className={styles.form} onSubmit={submitAuth}>
               <label>E-mail
@@ -319,31 +332,25 @@ export function AdminPanel() {
                 <input type="password" value={password} onChange={event=>setPassword(event.target.value)} autoComplete={authMode==="login"?"current-password":"new-password"}/>
               </label>
 
-              {authMode==="signup"&&<label>Chave de configuração
-                <input type="password" value={setupKey} onChange={event=>setSetupKey(event.target.value)} placeholder="ADMIN_SECRET"/>
-              </label>}
-
               <button className={styles.primary} disabled={loading}>
-                {loading?"Aguarde…":authMode==="login"?"Entrar":"Cadastrar administrador"}
+                {loading?"Aguarde…":authMode==="signup"&&signupAvailable?"Cadastrar administrador":"Entrar"}
               </button>
             </form>
           </>}
 
           {session&&!me?.admin&&(
             <div className={styles.bootstrap}>
-              <h3>{canBootstrap?"Ativar primeiro administrador":"Conta sem acesso administrativo"}</h3>
+              <h3>{signupAvailable&&candidateEmail===me?.user?.email?"Finalizando cadastro":"Conta sem acesso administrativo"}</h3>
               <p>
-                {canBootstrap
-                  ?"Use a ADMIN_SECRET configurada na Vercel. Depois que o primeiro administrador for criado, novos cadastros administrativos ficam bloqueados."
-                  :"Já existe um administrador. Esta conta precisa receber acesso por um administrador existente."}
+                {signupAvailable&&candidateEmail===me?.user?.email
+                  ?"Sua conta foi criada para o painel administrativo. Estamos concluindo a ativação automaticamente."
+                  :"Esta conta não possui acesso ao painel administrativo."}
               </p>
 
-              {canBootstrap&&<div className={styles.form}>
-                <label>Chave de configuração
-                  <input type="password" value={setupKey} onChange={event=>setSetupKey(event.target.value)} placeholder="ADMIN_SECRET"/>
-                </label>
-                <button className={styles.primary} onClick={()=>void bootstrap()} disabled={loading}>Ativar administrador</button>
-              </div>}
+              {signupAvailable&&candidateEmail===me?.user?.email&&
+                <button className={styles.primary} onClick={()=>void bootstrap()} disabled={loading}>
+                  {loading?"Ativando…":"Concluir cadastro"}
+                </button>}
 
               <button className={styles.ghost} onClick={()=>void signOut()}>Sair desta conta</button>
             </div>
@@ -353,7 +360,7 @@ export function AdminPanel() {
           {authMessage&&<div className={styles.feedback+" "+styles.success}>{authMessage}</div>}
 
           <p className={styles.muted}>
-            O endereço /paineladm não é a camada de segurança. O acesso também exige autenticação e permissão administrativa no servidor.
+            O painel exige uma conta administrativa autenticada. Depois que o primeiro administrador for criado, novos cadastros administrativos são bloqueados no servidor.
           </p>
         </section>
       </div>
