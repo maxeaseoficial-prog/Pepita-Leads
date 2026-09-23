@@ -600,3 +600,30 @@ export async function enrichLeadsFromRegistry(leads:CompanyLead[],input:SearchPa
 
   return output;
 }
+
+export async function enrichLeadsFromKnownCnpj(leads:CompanyLead[],input:SearchPayload) {
+  if(!leads.length) return leads;
+
+  const output=[...leads];
+  const workers=Math.min(3,leads.length);
+  let index=0;
+
+  await Promise.all(Array.from({length:workers},async()=>{
+    while(true) {
+      const current=index++;
+      if(current>=leads.length) return;
+      const lead=leads[current];
+      const candidate=lead.cnpjCandidate&&isValidCnpj(lead.cnpjCandidate)
+        ?lead.cnpjCandidate
+        :null;
+      if(!candidate&&!isValidCnpj(lead.cnpj)) continue;
+      output[current]=await enrichLeadFromRegistry(
+        lead,
+        input,
+        candidate?[candidate]:[]
+      ).catch(()=>lead);
+    }
+  }));
+
+  return output;
+}

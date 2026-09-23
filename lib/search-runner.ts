@@ -3,7 +3,7 @@ import { searchCompanies } from "./search";
 import { searchGoogleMaps } from "./google-maps-browser";
 import { searchOpenStreetMap } from "./openstreetmap-search";
 import { enrichMapResultsFromRfb } from "./rfb-enrichment";
-import { enrichLeadsFromRegistry } from "./company-registry";
+import { enrichLeadsFromKnownCnpj, enrichLeadsFromRegistry } from "./company-registry";
 import { getRfbDatasetStatus } from "./rfb-db";
 import type { SearchPayload, SearchResponse } from "./types";
 
@@ -83,7 +83,9 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
     const fromOpenStreetMap=result.dataset.mode==="OPENSTREETMAP";
     const rfbStatus=await getRfbDatasetStatus();
     const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload);
-    const registryEnriched=await enrichLeadsFromRegistry(rfbEnriched,payload);
+    const registryEnriched=fromOpenStreetMap
+      ?await enrichLeadsFromKnownCnpj(rfbEnriched,payload)
+      :await enrichLeadsFromRegistry(rfbEnriched,payload);
     result.results=registryEnriched.slice(0,result.requested);
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
