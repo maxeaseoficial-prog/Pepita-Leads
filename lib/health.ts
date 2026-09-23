@@ -1,50 +1,76 @@
 import { getDatabaseUrl, getSql } from "./db";
+import { getRfbDatasetStatus } from "./rfb-db";
 import type { HealthResponse } from "./types";
 
-export async function getHealth(): Promise<HealthResponse> {
-  if (!getDatabaseUrl()) {
+export async function getHealth():Promise<HealthResponse> {
+  const rfb=await getRfbDatasetStatus();
+
+  if(!getDatabaseUrl()) {
     return {
-      ok: false,
-      ready: false,
-      database: "missing",
-      datasetMode: "NOT_CONFIGURED",
-      providers: {
-        googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        mapsBrowser: true
+      ok:false,
+      ready:rfb.ready,
+      database:"missing",
+      datasetMode:rfb.mode,
+      datasetReference:rfb.reference,
+      providers:{
+        googlePlaces:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        websiteEnrichment:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser:true
+      },
+      rfb:{
+        configured:rfb.configured,
+        dedicated:rfb.dedicated,
+        ready:rfb.ready,
+        reference:rfb.reference,
+        states:rfb.states,
+        establishments:rfb.establishments
       }
     };
   }
 
   try {
-    const sql = getSql();
-    const metaRows = await sql.query("SELECT key,value FROM metadata");
-    const meta = Object.fromEntries(metaRows.map((r:any) => [r.key,r.value]));
-    const countRows = await sql.query("SELECT COUNT(*)::bigint AS count FROM establishments");
-    const count = Number(countRows[0]?.count || 0);
-    const mode = meta.dataset_mode || "UNKNOWN";
+    const sql=getSql();
+    await sql.query("select 1");
+
     return {
-      ok: true,
-      ready: mode === "RFB_OPEN_DATA" && count > 0,
-      database: "connected",
-      datasetMode: mode,
-      datasetReference: meta.dataset_reference || null,
-      providers: {
-        googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        mapsBrowser: true
+      ok:true,
+      ready:rfb.ready,
+      database:"connected",
+      datasetMode:rfb.mode,
+      datasetReference:rfb.reference,
+      providers:{
+        googlePlaces:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        websiteEnrichment:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser:true
+      },
+      rfb:{
+        configured:rfb.configured,
+        dedicated:rfb.dedicated,
+        ready:rfb.ready,
+        reference:rfb.reference,
+        states:rfb.states,
+        establishments:rfb.establishments
       }
     };
   } catch {
     return {
-      ok: false,
-      ready: false,
-      database: "error",
-      datasetMode: "ERROR",
-      providers: {
-        googlePlaces: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        websiteEnrichment: Boolean(process.env.GOOGLE_PLACES_API_KEY),
-        mapsBrowser: true
+      ok:false,
+      ready:rfb.ready,
+      database:"error",
+      datasetMode:rfb.mode,
+      datasetReference:rfb.reference,
+      providers:{
+        googlePlaces:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        websiteEnrichment:Boolean(process.env.GOOGLE_PLACES_API_KEY),
+        mapsBrowser:true
+      },
+      rfb:{
+        configured:rfb.configured,
+        dedicated:rfb.dedicated,
+        ready:rfb.ready,
+        reference:rfb.reference,
+        states:rfb.states,
+        establishments:rfb.establishments
       }
     };
   }
