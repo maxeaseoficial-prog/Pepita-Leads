@@ -328,8 +328,8 @@ function scorePlace(place:ScrapedPlace) {
 
 async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:SearchSession):Promise<CompanyLead> {
   const websiteContacts=place.website
-    ? await contactsFromWebsite(place.website).catch(()=>({instagram:null,whatsapp:null,phone:null,email:null}))
-    : {instagram:null,whatsapp:null,phone:null,email:null};
+    ? await contactsFromWebsite(place.website).catch(()=>({instagram:null,whatsapp:null,phone:null,email:null,cnpj:null}))
+    : {instagram:null,whatsapp:null,phone:null,email:null,cnpj:null};
 
   let instagram:SocialMatch|null=null;
   if(input.findInstagram) {
@@ -345,6 +345,7 @@ async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:S
   return {
     cnpj:"",
     cnpjFormatted:"Não localizado",
+    cnpjCandidate:websiteContacts.cnpj,
     legalName:place.name,
     tradeName:place.name,
     category:place.category||input.niche,
