@@ -35,7 +35,11 @@ function similarity(a:string,b:string) {
   const la=left.join(" ");
   const rb=right.join(" ");
   if(la===rb) return 1;
-  if((la.includes(rb)||rb.includes(la))&&Math.min(la.length,rb.length)>=5) return .92;
+  if(
+    (la.includes(rb)||rb.includes(la))
+    &&Math.min(left.length,right.length)>=2
+    &&Math.min(la.length,rb.length)>=5
+  ) return .92;
 
   const rightSet=new Set(right);
   const common=left.filter(token=>rightSet.has(token)).length;
@@ -113,9 +117,9 @@ function rankCandidate(lead:CompanyLead,row:Row) {
 type RankedCandidate=ReturnType<typeof rankCandidate>;
 
 function acceptCandidate(best:RankedCandidate,second?:RankedCandidate) {
-  if(best.phoneMatch&&best.nameScore>=.25) return true;
-  if(best.postalMatch&&best.nameScore>=.52) return true;
-  if(best.numberMatch&&best.nameScore>=.72) return true;
+  if(best.phoneMatch&&best.nameScore>=.35) return true;
+  if(best.postalMatch&&best.nameScore>=.20) return true;
+  if(best.numberMatch&&best.nameScore>=.60) return true;
 
   const margin=second?best.score-second.score:best.score;
   return best.nameScore>=.90&&(!second||margin>=.08);
