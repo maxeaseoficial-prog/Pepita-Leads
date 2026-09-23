@@ -48,6 +48,7 @@ type PlanUsage = {freeUsed:number;basicUsed:number;basicPeriod:string};
 type PlanConfig = {
   id:PlanId;
   name:string;
+  description:string;
   priceCents:number;
   searchLimit:number|null;
   resultsPerSearch:number;
@@ -57,9 +58,9 @@ type PlanConfig = {
 
 const VIEWS:View[]=["chat","results","crm","plans","settings"];
 const DEFAULT_PLAN_CONFIGS:PlanConfig[]=[
-  {id:"free",name:"Grátis",priceCents:0,searchLimit:3,resultsPerSearch:20,resultLimit:60,popular:false},
-  {id:"basic",name:"Basic",priceCents:2990,searchLimit:30,resultsPerSearch:20,resultLimit:600,popular:true},
-  {id:"unlimited",name:"Unlimited",priceCents:9990,searchLimit:null,resultsPerSearch:20,resultLimit:null,popular:false}
+  {id:"free",name:"Grátis",description:"Experimente a Pepita e descubra o poder da prospecção inteligente.",priceCents:0,searchLimit:3,resultsPerSearch:20,resultLimit:60,popular:false},
+  {id:"basic",name:"Basic",description:"Para quem está começando a prospectar todos os meses.",priceCents:2990,searchLimit:30,resultsPerSearch:20,resultLimit:600,popular:true},
+  {id:"unlimited",name:"Unlimited",description:"Para quem usa prospecção como parte da operação.",priceCents:9990,searchLimit:null,resultsPerSearch:20,resultLimit:null,popular:false}
 ];
 
 function planPriceLabel(plan:PlanConfig) {
@@ -1187,12 +1188,6 @@ function PlansView({currentPlan,plans}:{currentPlan:PlanId;plans:PlanConfig[]}) 
     "Exportação CSV/XLSX"
   ];
 
-  const descriptions:Record<PlanId,string>={
-    free:"Experimente a Pepita e descubra o poder da prospecção inteligente.",
-    basic:"Para quem está começando a prospectar todos os meses.",
-    unlimited:"Para quem usa prospecção como parte da operação."
-  };
-
   return (
     <div className="viewScroll plansView">
       <section className="plansHero">
@@ -1228,7 +1223,7 @@ function PlansView({currentPlan,plans}:{currentPlan:PlanId;plans:PlanConfig[]}) 
               {isCurrent&&<div className="currentPlanBadge">Seu plano</div>}
               <div className="planCardHeader">
                 <h3>{plan.name}</h3>
-                <p>{descriptions[plan.id]}</p>
+                <p>{plan.description}</p>
               </div>
 
               <div className="planPrice">
