@@ -9,7 +9,10 @@ type Row=Record<string,unknown>;
 
 const NAME_STOP_WORDS=new Set([
   "A","AS","O","OS","DE","DA","DAS","DO","DOS","E","EM","PARA","LTDA","ME","EPP","SA","S","S A",
-  "COMERCIO","COMERCIAL","SERVICOS","SERVICO","EMPRESA","EMPRESAS","CLINICA","CLINICAS"
+  "COMERCIO","COMERCIAL","SERVICOS","SERVICO","EMPRESA","EMPRESAS",
+  "CLINICA","CLINICAS","CONSULTORIO","CONSULTORIOS",
+  "ODONTOLOGICA","ODONTOLOGICAS","ODONTOLOGICO","ODONTOLOGICOS",
+  "ODONTOLOGIA","DENTISTA","DENTISTAS","ESPECIALIDADE","ESPECIALIDADES"
 ]);
 
 function cleanName(value:string) {
@@ -23,7 +26,11 @@ function nameTokens(value:string) {
   return [...new Set(
     cleanName(value)
       .split(" ")
-      .filter(token=>token.length>=3&&!NAME_STOP_WORDS.has(token))
+      .filter(token=>{
+        if(NAME_STOP_WORDS.has(token)) return false;
+        if(token.length>=3) return true;
+        return /^[A-Z]{2}$/.test(token);
+      })
   )].sort((a,b)=>b.length-a.length);
 }
 
