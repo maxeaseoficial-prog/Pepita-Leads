@@ -444,31 +444,29 @@ export function AdminPanel() {
                 </div>
               </div>
 
-              {!me.serviceRoleConfigured
-                ? <div className={styles.empty}>Configure SUPABASE_SERVICE_ROLE_KEY na Vercel para listar e editar usuários.</div>
-                : <div className={styles.tableWrap}>
-                    <table className={styles.table}>
-                      <thead><tr><th>Usuário</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Stripe</th></tr></thead>
-                      <tbody>
-                        {filtered.map(user=><tr key={user.id}>
-                          <td className={styles.userCell}><strong>{user.name||"Sem nome"}</strong><span>{user.email}</span></td>
-                          <td>
-                            <select className={styles.planSelect} value={user.plan} onChange={event=>void changePlan(user.id,event.target.value as PlanId)}>
-                              <option value="free">Grátis</option>
-                              <option value="basic">Basic</option>
-                              <option value="unlimited">Unlimited</option>
-                            </select>
-                          </td>
-                          <td>{new Date(user.createdAt).toLocaleDateString("pt-BR")}</td>
-                          <td>{user.lastSignInAt?new Date(user.lastSignInAt).toLocaleString("pt-BR"):"—"}</td>
-                          <td>{user.billing
-                            ? <span className={styles.badge+" "+styles.gold}>{user.billing.status}</span>
-                            : <span className={styles.badge}>sem assinatura</span>}
-                          </td>
-                        </tr>)}
-                      </tbody>
-                    </table>
-                  </div>}
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead><tr><th>Usuário</th><th>Plano</th><th>Cadastro</th><th>Último acesso</th><th>Stripe</th></tr></thead>
+                  <tbody>
+                    {filtered.map(user=><tr key={user.id}>
+                      <td className={styles.userCell}><strong>{user.name||"Sem nome"}</strong><span>{user.email}</span></td>
+                      <td>
+                        <select className={styles.planSelect} value={user.plan} onChange={event=>void changePlan(user.id,event.target.value as PlanId)}>
+                          <option value="free">Grátis</option>
+                          <option value="basic">Basic</option>
+                          <option value="unlimited">Unlimited</option>
+                        </select>
+                      </td>
+                      <td>{new Date(user.createdAt).toLocaleDateString("pt-BR")}</td>
+                      <td>{user.lastSignInAt?new Date(user.lastSignInAt).toLocaleString("pt-BR"):"—"}</td>
+                      <td>{user.billing
+                        ? <span className={styles.badge+" "+styles.gold}>{user.billing.status}</span>
+                        : <span className={styles.badge}>sem assinatura</span>}
+                      </td>
+                    </tr>)}
+                  </tbody>
+                </table>
+              </div>
             </section>}
 
             {tab==="plans"&&<>
