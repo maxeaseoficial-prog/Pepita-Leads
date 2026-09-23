@@ -135,3 +135,23 @@ O telefone cadastral pode ser do proprietário em muitos pequenos negócios, mas
 ## Fallback
 
 Enquanto uma UF ainda não estiver carregada no banco RFB dedicado, a Pepita continua usando o resolvedor público/cache atual. A migração pode ser gradual sem interromper as buscas.
+
+### OpenCNPJ + BigQuery
+
+Sem uma base RFB pronta, a Pepita pode descobrir candidatos no dataset público
+`opencnpj-bigquery.public.receita` e consultar os detalhes gratuitamente na API
+do OpenCNPJ. A consulta ao BigQuery é feita uma vez por busca, para até 20 leads,
+e os resultados validados são salvos no cache operacional da Pepita.
+
+```env
+OPEN_CNPJ_BIGQUERY_ENABLED=true
+OPEN_CNPJ_BIGQUERY_TABLE=opencnpj-bigquery.public.receita
+OPEN_CNPJ_BIGQUERY_MAX_BYTES=53687091200
+GOOGLE_CLOUD_PROJECT=projeto-que-fatura-a-consulta
+GOOGLE_CLOUD_LOCATION=US
+GOOGLE_CLOUD_CREDENTIALS={"client_email":"...","private_key":"..."}
+```
+
+`GOOGLE_CLOUD_CREDENTIALS` é segredo de servidor e nunca deve receber prefixo
+`NEXT_PUBLIC_`. O projeto Google informado é usado apenas para executar/faturar
+a consulta; os dados continuam vindo do dataset público do OpenCNPJ.

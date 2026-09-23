@@ -1,5 +1,6 @@
 import { getSql } from "./db";
 import { formatCnpj, yearsBetween } from "./format";
+import { discoverOpenCnpjCandidates } from "./opencnpj-bigquery";
 import type { CompanyLead, Partner, SearchPayload } from "./types";
 
 type Row=Record<string,unknown>;
@@ -254,11 +255,77 @@ function partnersFromBrasilApi(raw:Record<string,unknown>) {
     .filter(item=>Boolean(item.name));
 }
 
+function partnersFromOpenCnpj(raw:Record<string,unknown>) {
+  const qsa=Array.isArray(raw.QSA)?raw.QSA:[];
+  return qsa
+    .filter(item=>item&&typeof item==="object")
+    .map(item=>{
+      const value=item as Record<string,unknown>;
+      return {
+        name:clean(value.nome_socio),
+        qualification:clean(value.qualificacao_socio)||null,
+        entryDate:clean(value.data_entrada_sociedade)||null
+      } satisfies Partner;
+    })
+    .filter(item=>Boolean(item.name));
+}
+
+function firstOpenCnpjPhone(raw:Record<string,unknown>) {
+  const phones=Array.isArray(raw.telefones)?raw.telefones:[];
+  for(const item of phones) {
+    if(!item||typeof item!=="object") continue;
+    const phone=item as Record<string,unknown>;
+    if(phone.is_fax===true) continue;
+    const value=clean(phone.ddd)+clean(phone.numero);
+    if(value) return value;
+  }
+  return null;
+}
+
+async function fetchOpenCnpj(cnpj:string):Promise<RegistryRecord|null> {
+  try {
+    const response=await fetch(`https://api.opencnpj.org/${cnpj}?datasets=receita`,{
+      headers:{"User-Agent":"PepitaBusinessRegistry/1.0","Accept":"application/json"},
+      signal:AbortSignal.timeout(10_000),
+      cache:"no-store"
+    });
+    if(!response.ok) return null;
+    const raw=await response.json() as Record<string,unknown>;
+    const record:RegistryRecord={
+      cnpj:clean(raw.cnpj||cnpj).replace(/\D/g,""),
+      legalName:clean(raw.razao_social),
+      tradeName:clean(raw.nome_fantasia)||null,
+      status:clean(raw.situacao_cadastral)||null,
+      city:clean(raw.municipio)||null,
+      state:clean(raw.uf)||null,
+      phone:formatPhone(firstOpenCnpjPhone(raw)),
+      email:clean(raw.email)||null,
+      openingDate:clean(raw.data_inicio_atividade)||null,
+      cnae:clean(raw.cnae_principal)||null,
+      category:null,
+      companySize:clean(raw.porte_empresa)||null,
+      capitalSocialCents:moneyCents(raw.capital_social),
+      partners:partnersFromOpenCnpj(raw),
+      source:"OPENCNPJ",
+      rawPayload:raw
+    };
+    return record.legalName&&isValidCnpj(record.cnpj)?record:null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchBrasilApi(cnpj:string):Promise<RegistryRecord|null> {
   if(!isValidCnpj(cnpj)) return null;
 
   const cached=await loadCachedByCnpj(cnpj);
   if(cached) return cached;
+
+  const openCnpj=await fetchOpenCnpj(cnpj);
+  if(openCnpj) {
+    await saveRegistryRecord(openCnpj);
+    return openCnpj;
+  }
 
   try {
     const response=await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`,{
@@ -466,7 +533,11 @@ function mergeLead(lead:CompanyLead,record:RegistryRecord):CompanyLead {
   };
 }
 
-export async function enrichLeadFromRegistry(lead:CompanyLead,_input:SearchPayload):Promise<CompanyLead> {
+export async function enrichLeadFromRegistry(
+  lead:CompanyLead,
+  _input:SearchPayload,
+  openCnpjCandidates:string[]=[]
+):Promise<CompanyLead> {
   if(lead.cnpj&&isValidCnpj(lead.cnpj)) {
     const direct=await fetchBrasilApi(lead.cnpj);
     return direct?mergeLead(lead,direct):lead;
@@ -476,7 +547,10 @@ export async function enrichLeadFromRegistry(lead:CompanyLead,_input:SearchPaylo
   const cached=await loadCachedMatch(key);
   if(cached) return mergeLead(lead,cached);
 
-  const candidates=await discoverCnpjCandidates(lead);
+  const candidates=[
+    ...openCnpjCandidates,
+    ...await discoverCnpjCandidates(lead)
+  ].filter((cnpj,index,all)=>all.indexOf(cnpj)===index);
   let best:{record:RegistryRecord;score:number;source:string}|null=null;
 
   for(const cnpj of candidates.slice(0,3)) {
@@ -488,7 +562,13 @@ export async function enrichLeadFromRegistry(lead:CompanyLead,_input:SearchPaylo
     const adjusted=hinted?Math.min(1,score+.18):score;
 
     if(!best||adjusted>best.score) {
-      best={record,score:adjusted,source:hinted?"OFFICIAL_WEBSITE_CNPJ":"PUBLIC_WEB_CNPJ"};
+      best={
+        record,
+        score:adjusted,
+        source:hinted
+          ?"OFFICIAL_WEBSITE_CNPJ"
+          :(openCnpjCandidates.includes(cnpj)?"OPENCNPJ_BIGQUERY":"PUBLIC_WEB_CNPJ")
+      };
     }
   }
 
@@ -502,6 +582,7 @@ export async function enrichLeadsFromRegistry(leads:CompanyLead[],input:SearchPa
   if(!leads.length) return leads;
 
   const output=[...leads];
+  const openCnpjCandidates=await discoverOpenCnpjCandidates(leads).catch(()=>new Map<number,string[]>());
   const workers=Math.min(3,leads.length);
   let index=0;
 
@@ -509,7 +590,11 @@ export async function enrichLeadsFromRegistry(leads:CompanyLead[],input:SearchPa
     while(true) {
       const current=index++;
       if(current>=leads.length) return;
-      output[current]=await enrichLeadFromRegistry(leads[current],input).catch(()=>leads[current]);
+      output[current]=await enrichLeadFromRegistry(
+        leads[current],
+        input,
+        openCnpjCandidates.get(current)||[]
+      ).catch(()=>leads[current]);
     }
   }));
 
