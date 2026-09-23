@@ -214,6 +214,7 @@ export function PepitaApp() {
   const [history,setHistory]=useState<HistoryItem[]>([]);
   const [planUsage,setPlanUsage]=useState<PlanUsage>(()=>normalizePlanUsage(null));
   const [planConfigs,setPlanConfigs]=useState<PlanConfig[]>(DEFAULT_PLAN_CONFIGS);
+  const [effectivePlan,setEffectivePlan]=useState<PlanId|null>(null);
   const [working,setWorking]=useState(false);
   const [structuredOpen,setStructuredOpen]=useState(false);
   const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch());
@@ -290,6 +291,42 @@ export function PepitaApp() {
     });
     return ()=>subscription.unsubscribe();
   },[]);
+
+  useEffect(()=>{
+    if(!accessToken) {
+      setEffectivePlan(null);
+      return;
+    }
+
+    let cancelled=false;
+
+    async function refreshPlan() {
+      try {
+        const response=await fetch("/api/account/plan",{
+          headers:{Authorization:`Bearer ${accessToken}`},
+          cache:"no-store"
+        });
+        if(!response.ok) return;
+        const data=await response.json() as {plan?:string};
+        if(cancelled) return;
+        setEffectivePlan(data.plan==="basic"||data.plan==="unlimited"?data.plan:"free");
+      } catch {}
+    }
+
+    void refreshPlan();
+    const onFocus=()=>void refreshPlan();
+    const onVisibility=()=>{
+      if(document.visibilityState==="visible") void refreshPlan();
+    };
+
+    window.addEventListener("focus",onFocus);
+    document.addEventListener("visibilitychange",onVisibility);
+    return ()=>{
+      cancelled=true;
+      window.removeEventListener("focus",onFocus);
+      document.removeEventListener("visibilitychange",onVisibility);
+    };
+  },[accessToken]);
 
   useEffect(()=>()=>{
     recognitionRef.current?.abort();
@@ -612,7 +649,7 @@ export function PepitaApp() {
       setResults(result.results);
       setDataset(result.dataset);
       saveHistory(query,enforcedPayload,result);
-      registerSearchUsage(currentPlanForUser(authUser));
+      registerSearchUsage(effectivePlan||currentPlanForUser(authUser));
 
       if(result.returned===0) {
         addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
@@ -767,7 +804,7 @@ export function PepitaApp() {
   const sidebarHidden=sidebarCollapsed&&!isMobile;
   const accountAvatar=String(authUser?.user_metadata?.avatar_url||authUser?.user_metadata?.picture||"");
   const accountInitial=(authUser?.email?.trim().charAt(0)||"?").toUpperCase();
-  const currentPlan=currentPlanForUser(authUser);
+  const currentPlan=effectivePlan||currentPlanForUser(authUser);
   const currentPlanConfig=planConfigs.find(plan=>plan.id===currentPlan)||DEFAULT_PLAN_CONFIGS[0];
   const normalizedUsage=normalizePlanUsage(planUsage);
   const searchLimit=currentPlanConfig.searchLimit;
