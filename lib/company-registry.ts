@@ -297,13 +297,21 @@ export async function fetchBrasilApi(cnpj:string):Promise<RegistryRecord|null> {
 }
 
 function scoreMatch(lead:CompanyLead,record:RegistryRecord) {
+  const leadState=normalize(lead.state);
+  const recordState=normalize(record.state);
+  if(leadState&&recordState&&leadState!==recordState) return 0;
+
+  const leadCity=normalize(lead.city);
+  const recordCity=normalize(record.city);
+  if(leadCity&&recordCity&&leadCity!==recordCity) return 0;
+
   let score=Math.max(
     similarity(lead.tradeName||lead.legalName,record.tradeName||""),
     similarity(lead.tradeName||lead.legalName,record.legalName)
   )*.66;
 
-  if(lead.state&&record.state&&normalize(lead.state)===normalize(record.state)) score+=.10;
-  if(lead.city&&record.city&&normalize(lead.city)===normalize(record.city)) score+=.14;
+  if(leadState&&recordState&&leadState===recordState) score+=.10;
+  if(leadCity&&recordCity&&leadCity===recordCity) score+=.14;
 
   const leadPhone=phoneTail(lead.phone);
   const officialPhone=phoneTail(record.phone);
@@ -338,11 +346,20 @@ async function publicSearchDocuments(query:string) {
   const encoded=encodeURIComponent(query);
   const urls=[
     `https://html.duckduckgo.com/html/?q=${encoded}`,
-    `https://www.bing.com/search?q=${encoded}&setlang=pt-br&cc=br`
+    `https://www.bing.com/search?q=${encoded}&setlang=pt-br&cc=br`,
+    `https://www.google.com/search?q=${encoded}&hl=pt-BR&gl=br&num=10`,
+    `https://juridicoonline.com.br/buscar?q=${encoded}`
   ];
 
-  const documents=await Promise.all(urls.map(fetchSearchDocument));
-  return documents.filter(Boolean);
+  let documents=(await Promise.all(urls.map(fetchSearchDocument))).filter(Boolean);
+
+  if(!documents.some(document=>extractCnpjCandidates(document).length)) {
+    const jinaUrl=`https://r.jina.ai/http://www.google.com/search?q=${encoded}`;
+    const jina=await fetchSearchDocument(jinaUrl);
+    if(jina) documents=[...documents,jina];
+  }
+
+  return documents;
 }
 
 function rankCnpjCandidates(documents:string[]) {
@@ -373,6 +390,12 @@ async function discoverCnpjCandidates(lead:CompanyLead) {
   const primaryQuery=[`"${name}"`,location,"CNPJ"].filter(Boolean).join(" ");
   const primaryDocuments=await publicSearchDocuments(primaryQuery);
   let discovered=rankCnpjCandidates(primaryDocuments);
+
+  if(!discovered.length) {
+    const directoryQuery=[`site:juridicoonline.com.br/empresa "${name}"`,location].filter(Boolean).join(" ");
+    const directoryDocuments=await publicSearchDocuments(directoryQuery);
+    discovered=rankCnpjCandidates(directoryDocuments);
+  }
 
   if(!discovered.length&&lead.phone) {
     const digits=phoneDigits(lead.phone);
