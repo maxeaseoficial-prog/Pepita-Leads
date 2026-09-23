@@ -1325,7 +1325,7 @@ function ResultsView({
             <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou consulte o histórico de buscas.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>
           ) : (
             <div className="resultsGrid">
-              {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
+              {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} sourceLabel={dataset?.mode.startsWith("OPENSTREETMAP")?"OpenStreetMap":"Google Maps"} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
             </div>
           )}
         </>
@@ -1374,7 +1374,7 @@ function ResultsView({
   );
 }
 
-function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
+function ResultCard({item,sourceLabel,onDetail}:{item:CompanyLead;sourceLabel:string;onDetail?:()=>void}) {
   const phoneDigits=(item.phone||"").replace(/\D/g,"");
   const registeredPhoneDigits=(item.registeredPhone||"").replace(/\D/g,"");
   const registeredPhone2Digits=(item.registeredPhone2||"").replace(/\D/g,"");
@@ -1415,7 +1415,7 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
 
       <div className="tagRow">
         {fromMaps
-          ? <><span>Google Maps</span><span>CNPJ não localizado</span></>
+          ? <><span>{sourceLabel}</span><span>CNPJ não localizado</span></>
           : <><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}
       </div>
 
