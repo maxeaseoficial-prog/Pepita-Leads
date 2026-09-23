@@ -254,7 +254,7 @@ function partnersFromBrasilApi(raw:Record<string,unknown>) {
     .filter(item=>Boolean(item.name));
 }
 
-async function fetchBrasilApi(cnpj:string):Promise<RegistryRecord|null> {
+export async function fetchBrasilApi(cnpj:string):Promise<RegistryRecord|null> {
   if(!isValidCnpj(cnpj)) return null;
 
   const cached=await loadCachedByCnpj(cnpj);
@@ -335,6 +335,39 @@ async function discoverCnpjCandidates(lead:CompanyLead) {
   const query=[`"${name}"`,lead.city,lead.state,"CNPJ"].filter(Boolean).join(" ");
   const html=await publicSearchHtml(query);
   return [...new Set([...fromHint,...extractCnpjCandidates(html)])].slice(0,5);
+}
+
+
+export function registryRecordToLead(record:RegistryRecord):CompanyLead {
+  return {
+    cnpj:record.cnpj,
+    cnpjFormatted:formatCnpj(record.cnpj),
+    legalName:record.legalName,
+    tradeName:record.tradeName,
+    category:record.category,
+    cnae:record.cnae,
+    statusCode:record.status,
+    openingDate:record.openingDate,
+    ageYears:record.openingDate?yearsBetween(record.openingDate):null,
+    companySizeCode:null,
+    companySize:record.companySize||"Não informado",
+    capitalSocialCents:record.capitalSocialCents,
+    matrixBranch:"Não informado",
+    city:record.city,
+    state:record.state,
+    address:null,
+    postalCode:null,
+    phone:record.phone,
+    whatsapp:null,
+    ownerPhone:null,
+    ownerWhatsapp:null,
+    email:record.email,
+    website:null,
+    mapsUrl:null,
+    social:{instagram:null},
+    potential:{score:50,level:"MEDIUM",reasons:["dados cadastrais públicos encontrados"]},
+    partners:record.partners
+  };
 }
 
 function mergeLead(lead:CompanyLead,record:RegistryRecord):CompanyLead {
