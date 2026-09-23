@@ -13,6 +13,15 @@ function stringOrNull(value:unknown) {
   return typeof value==="string"&&value.length?value:null;
 }
 
+function parseDbJson<T>(value:unknown,fallback:T):T {
+  if(value===null||value===undefined) return fallback;
+  if(typeof value==="string") {
+    try { return JSON.parse(value) as T; } catch { return fallback; }
+  }
+  if(typeof value==="object") return value as T;
+  return fallback;
+}
+
 function mapComment(row:Row):CrmComment {
   return {
     id:String(row.id),
@@ -135,12 +144,18 @@ export async function loadCrmBoard(workspace:string):Promise<CrmBoard> {
       columns.push(column);
     }
 
-    const cardRow=row.card;
-    if(!cardRow||typeof cardRow!=="object"||Array.isArray(cardRow)) continue;
-    const comments=Array.isArray(row.comments)
-      ? row.comments.filter((value):value is Row=>Boolean(value)&&typeof value==="object"&&!Array.isArray(value)).map(mapComment)
+    const cardRow=parseDbJson<Row|null>(row.card,null);
+    if(!cardRow||Array.isArray(cardRow)) continue;
+
+    const rawComments=parseDbJson<unknown[]>(row.comments,[]);
+    const comments=Array.isArray(rawComments)
+      ? rawComments
+          .map(value=>parseDbJson<Row|null>(value,null))
+          .filter((value):value is Row=>Boolean(value)&&!Array.isArray(value))
+          .map(mapComment)
       : [];
-    column.cards.push(mapCard(cardRow as Row,comments));
+
+    column.cards.push(mapCard(cardRow,comments));
     totalCards+=1;
   }
 
