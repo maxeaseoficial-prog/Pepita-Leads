@@ -11,13 +11,18 @@ permissions:
 
 jobs:
   probe:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - name: Probe official RFB direct GET
+        shell: bash
         run: |
           set -euxo pipefail
-          URL="https://arquivos.receitafederal.gov.br/public.php/webdav/2026-08/Municipios.zip"
+          URL="https://arquivos.receitafederal.gov.br/public.php/webdav/2026-09/Cnaes.zip"
           curl --fail-with-body --location \
             --user "YggdBLfdninEJX9:" \
             --range 0-1023 \
