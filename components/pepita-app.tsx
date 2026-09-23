@@ -184,7 +184,7 @@ function defaultSearch():SearchPayload {
     niche:"",
     city:"",
     state:"",
-    quantity:10,
+    quantity:20,
     companySizes:[],
     minCapital:0,
     minAgeYears:0,
@@ -964,15 +964,6 @@ export function PepitaApp() {
     addMessage("assistant","Posso encontrar empresas, refinar filtros, consultar CNPJ e sócios, analisar oportunidades, mostrar a fonte e exportar resultados.");
   }
 
-  async function chooseQuantity(quantity:number) {
-    if(!pendingSearch) return;
-    const payload={...pendingSearch,quantity};
-    setPendingSearch(null);
-    addMessage("user",String(quantity));
-    const location=[payload.city,payload.state].filter(Boolean).join("/");
-    await executeSearch(payload,`${quantity} ${payload.niche} em ${location}`);
-  }
-
   async function openDetail(cnpj:string) {
     setDetailLoading(true);
     try {
@@ -1126,11 +1117,6 @@ export function PepitaApp() {
                     {message.role==="assistant" && <img className="avatar" src={message.kind==="error"?"/pepita/error.png":"/pepita/normal.png"} alt=""/>}
                     <div className="bubble">
                       <p>{message.text}</p>
-                      {message.kind==="quantity" && (
-                        <div className="quantityButtons">
-                          {[10,20].map(q=><button key={q} onClick={()=>chooseQuantity(q)}>{q}</button>)}
-                        </div>
-                      )}
                       {message.kind==="result" && (
                         <button className="inlinePrimary" onClick={()=>navigate("results")}>Ver resultados <ArrowRightIcon/></button>
                       )}
