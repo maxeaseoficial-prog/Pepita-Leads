@@ -50,6 +50,8 @@ export type CompanyLead = {
   address: string | null;
   postalCode: string | null;
   phone: string | null;
+  registeredPhone?: string | null;
+  registeredPhone2?: string | null;
   whatsapp?: string | null;
   ownerPhone?: string | null;
   ownerWhatsapp?: string | null;
@@ -101,6 +103,14 @@ export type HealthResponse = {
     googlePlaces: boolean;
     websiteEnrichment: boolean;
     mapsBrowser: boolean;
+  };
+  rfb?: {
+    configured:boolean;
+    dedicated:boolean;
+    ready:boolean;
+    reference:string|null;
+    states:string[];
+    establishments:number;
   };
 };
 
