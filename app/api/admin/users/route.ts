@@ -12,6 +12,17 @@ function planOf(metadata:Record<string,unknown>|null|undefined):Plan {
   return value==="basic"||value==="unlimited"?value:"free";
 }
 
+function jsonRecord(value:unknown):Record<string,unknown> {
+  if(value&&typeof value==="object"&&!Array.isArray(value)) return value as Record<string,unknown>;
+  if(typeof value==="string") {
+    try {
+      const parsed=JSON.parse(value) as unknown;
+      if(parsed&&typeof parsed==="object"&&!Array.isArray(parsed)) return parsed as Record<string,unknown>;
+    } catch {}
+  }
+  return {};
+}
+
 export async function GET(request:NextRequest) {
   try {
     await requireAdmin(request);
@@ -39,8 +50,8 @@ export async function GET(request:NextRequest) {
     }
 
     const mapped=rows.map(row=>{
-      const userMeta=(row.user_meta&&typeof row.user_meta==="object"?row.user_meta:{}) as Record<string,unknown>;
-      const appMeta=(row.app_meta&&typeof row.app_meta==="object"?row.app_meta:{}) as Record<string,unknown>;
+      const userMeta=jsonRecord(row.user_meta);
+      const appMeta=jsonRecord(row.app_meta);
       const plan=planOf(appMeta);
 
       return {
