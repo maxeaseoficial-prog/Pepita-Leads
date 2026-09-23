@@ -43,6 +43,22 @@ RFB_DB_SCHEMA=rfb
 
 O banco operacional continua usando `SUPABASE_DATABASE_URL` / `DATABASE_URL`.
 
+## Download dos arquivos oficiais
+
+A Pepita inclui um downloader próprio que identifica a competência mais recente publicada pela Receita:
+
+```bash
+python scripts/download-rfb.py --output /dados/rfb
+```
+
+Para fixar uma competência:
+
+```bash
+python scripts/download-rfb.py --month 2026-09 --output /dados/rfb
+```
+
+O script cria uma subpasta da competência e baixa os ZIPs em streaming.
+
 ## Importação inicial recomendada
 
 Para iniciar com Paraná:
