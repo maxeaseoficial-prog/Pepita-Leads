@@ -49,6 +49,9 @@ export type CompanyLead = {
   address: string | null;
   postalCode: string | null;
   phone: string | null;
+  whatsapp?: string | null;
+  ownerPhone?: string | null;
+  ownerWhatsapp?: string | null;
   email: string | null;
   website?: string | null;
   mapsUrl?: string | null;
