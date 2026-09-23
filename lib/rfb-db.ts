@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { getDatabaseUrl } from "./db";
+import { getRfbApiStatus } from "./rfb-api";
 
 let rfbClient:ReturnType<typeof postgres>|null=null;
 let statusCache:{at:number;value:RfbDatasetStatus}|null=null;
@@ -24,7 +24,7 @@ function safeSchema(value:string) {
 }
 
 export function getRfbDatabaseUrl() {
-  return process.env.RFB_DATABASE_URL||getDatabaseUrl();
+  return process.env.RFB_DATABASE_URL||null;
 }
 
 export function hasDedicatedRfbDatabase() {
@@ -33,8 +33,7 @@ export function hasDedicatedRfbDatabase() {
 
 export function getRfbSchema() {
   return safeSchema(
-    process.env.RFB_DB_SCHEMA
-    ||(hasDedicatedRfbDatabase()?"rfb":"public")
+    process.env.RFB_DB_SCHEMA||"rfb"
   );
 }
 
@@ -74,15 +73,24 @@ function parseStates(value:unknown) {
 export async function getRfbDatasetStatus(force=false):Promise<RfbDatasetStatus> {
   if(!force&&statusCache&&Date.now()-statusCache.at<60_000) return statusCache.value;
 
-  const configured=Boolean(getRfbDatabaseUrl());
+  const directConfigured=Boolean(getRfbDatabaseUrl());
   const dedicated=hasDedicatedRfbDatabase();
   const schema=getRfbSchema();
 
-  if(!configured) {
+  if(!directConfigured) {
+    const api=await getRfbApiStatus();
     const value:RfbDatasetStatus={
-      configured:false,dedicated,ready:false,schema,
-      mode:"NOT_CONFIGURED",reference:null,states:[],
-      companies:0,establishments:0,partners:0,municipalities:0
+      configured:Boolean(api),
+      dedicated:true,
+      ready:Boolean(api?.ready),
+      schema:"rfb",
+      mode:api?.ready?"RFB_OPEN_DATA":"API_NOT_READY",
+      reference:api?.reference||null,
+      states:Array.isArray(api?.states)?api!.states.filter(Boolean):[],
+      companies:Number(api?.companies||0),
+      establishments:Number(api?.establishments||0),
+      partners:Number(api?.partners||0),
+      municipalities:Number(api?.municipalities||0)
     };
     statusCache={at:Date.now(),value};
     return value;
