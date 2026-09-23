@@ -1,0 +1,63 @@
+name: Import RFB Paraná
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/import-rfb.yml"
+      - "scripts/rfb-import-trigger.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: pepita-rfb-import
+  cancel-in-progress: false
+
+jobs:
+  import-rfb-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      RFB_ENDPOINT: https://xecdkznpednfslnjzzio.supabase.co/functions/v1/rfb-ingest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/share/dotnet || true
+          df -h
+
+      - name: Download latest official RFB dataset
+        run: |
+          mkdir -p "$RUNNER_TEMP/rfb"
+          python scripts/download-rfb.py \
+            --output "$RUNNER_TEMP/rfb" \
+            --include "Municipios,Cnaes,Qualificacoes,Empresas,Estabelecimentos,Socios"
+          MONTH_DIR="$(find "$RUNNER_TEMP/rfb" -mindepth 1 -maxdepth 1 -type d | sort | tail -1)"
+          test -n "$MONTH_DIR"
+          echo "RFB_INPUT=$MONTH_DIR" >> "$GITHUB_ENV"
+          echo "RFB_REFERENCE=RFB $(basename "$MONTH_DIR")" >> "$GITHUB_ENV"
+          du -sh "$MONTH_DIR"
+          df -h
+
+      - name: Import PR establishments, companies and partners
+        run: |
+          python scripts/import-rfb-http.py \
+            --input "$RFB_INPUT" \
+            --states PR \
+            --endpoint "$RFB_ENDPOINT" \
+            --reference "$RFB_REFERENCE" \
+            --batch-size 600 \
+            --skip-simple
