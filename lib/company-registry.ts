@@ -312,29 +312,76 @@ function scoreMatch(lead:CompanyLead,record:RegistryRecord) {
   return Math.min(1,score);
 }
 
-async function publicSearchHtml(query:string) {
+const SEARCH_USER_AGENT="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36";
+
+async function fetchSearchDocument(url:string) {
   try {
-    const url=`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
     const response=await fetch(url,{
-      headers:{"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36"},
+      headers:{
+        "User-Agent":SEARCH_USER_AGENT,
+        "Accept-Language":"pt-BR,pt;q=0.9,en;q=0.7"
+      },
       signal:AbortSignal.timeout(8_000),
-      cache:"no-store"
+      cache:"no-store",
+      redirect:"follow"
     });
     if(!response.ok) return "";
     const html=await response.text();
-    if(/anomaly-modal|challenge-form/i.test(html)) return "";
-    return html.slice(0,1_500_000);
+    if(/anomaly-modal|challenge-form|unusual traffic|detected unusual/i.test(html)) return "";
+    return html.slice(0,1_800_000);
   } catch {
     return "";
   }
 }
 
+async function publicSearchDocuments(query:string) {
+  const encoded=encodeURIComponent(query);
+  const urls=[
+    `https://html.duckduckgo.com/html/?q=${encoded}`,
+    `https://www.bing.com/search?q=${encoded}&setlang=pt-br&cc=br`
+  ];
+
+  const documents=await Promise.all(urls.map(fetchSearchDocument));
+  return documents.filter(Boolean);
+}
+
+function rankCnpjCandidates(documents:string[]) {
+  const stats=new Map<string,{count:number;first:number}>();
+  let order=0;
+
+  for(const document of documents) {
+    const seenInDocument=new Set<string>();
+    for(const cnpj of extractCnpjCandidates(document)) {
+      const current=stats.get(cnpj)||{count:0,first:order++};
+      if(!seenInDocument.has(cnpj)) current.count+=1;
+      seenInDocument.add(cnpj);
+      stats.set(cnpj,current);
+    }
+  }
+
+  return [...stats.entries()]
+    .sort((a,b)=>b[1].count-a[1].count||a[1].first-b[1].first)
+    .map(([cnpj])=>cnpj);
+}
+
 async function discoverCnpjCandidates(lead:CompanyLead) {
   const fromHint=lead.cnpjCandidate&&isValidCnpj(lead.cnpjCandidate)?[lead.cnpjCandidate]:[];
+  if(fromHint.length) return fromHint;
+
   const name=lead.tradeName||lead.legalName;
-  const query=[`"${name}"`,lead.city,lead.state,"CNPJ"].filter(Boolean).join(" ");
-  const html=await publicSearchHtml(query);
-  return [...new Set([...fromHint,...extractCnpjCandidates(html)])].slice(0,5);
+  const location=[lead.city,lead.state].filter(Boolean).join(" ");
+  const primaryQuery=[`"${name}"`,location,"CNPJ"].filter(Boolean).join(" ");
+  const primaryDocuments=await publicSearchDocuments(primaryQuery);
+  let discovered=rankCnpjCandidates(primaryDocuments);
+
+  if(!discovered.length&&lead.phone) {
+    const digits=phoneDigits(lead.phone);
+    const phoneQuery=[`"${digits}"`,`"${name}"`,"CNPJ"].filter(Boolean).join(" ");
+    const phoneDocuments=await publicSearchDocuments(phoneQuery);
+    discovered=rankCnpjCandidates(phoneDocuments);
+  }
+
+  return discovered.slice(0,5);
 }
 
 
