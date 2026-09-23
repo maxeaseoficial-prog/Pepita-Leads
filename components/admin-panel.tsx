@@ -24,6 +24,7 @@ type Summary={total:number;free:number;basic:number;unlimited:number};
 type PlanSetting={
   id:PlanId;
   name:string;
+  description:string;
   priceCents:number;
   searchLimit:number|null;
   resultsPerSearch:number;
@@ -132,21 +133,29 @@ export function AdminPanel() {
     setLoading(true);
     setSaveMessage("");
 
-    try {
-      const [userData,planData]=await Promise.all([
-        api<{users:AdminUser[];summary:Summary}>("/api/admin/users",session),
-        api<{plans:PlanSetting[];stripe:{secretConfigured:boolean;webhookConfigured:boolean}}>("/api/admin/plans",session)
-      ]);
+    const [usersResult,plansResult]=await Promise.allSettled([
+      api<{users:AdminUser[];summary:Summary}>("/api/admin/users",session),
+      api<{plans:PlanSetting[];stripe:{secretConfigured:boolean;webhookConfigured:boolean}}>("/api/admin/plans",session)
+    ]);
 
-      setUsers(userData.users);
-      setSummary(userData.summary);
-      setPlans(planData.plans);
-      setStripeState(planData.stripe);
-    } catch(error) {
-      setSaveMessage(error instanceof Error?error.message:"Falha ao carregar o painel.");
-    } finally {
-      setLoading(false);
+    const errors:string[]=[];
+
+    if(usersResult.status==="fulfilled") {
+      setUsers(usersResult.value.users);
+      setSummary(usersResult.value.summary);
+    } else {
+      errors.push(`Falha ao carregar usuários: ${usersResult.reason instanceof Error?usersResult.reason.message:"erro desconhecido"}`);
     }
+
+    if(plansResult.status==="fulfilled") {
+      setPlans(plansResult.value.plans);
+      setStripeState(plansResult.value.stripe);
+    } else {
+      errors.push(`Falha ao carregar planos: ${plansResult.reason instanceof Error?plansResult.reason.message:"erro desconhecido"}`);
+    }
+
+    if(errors.length) setSaveMessage(errors.join(" · "));
+    setLoading(false);
   }
 
   async function submitAuth(event:React.FormEvent) {
@@ -481,7 +490,7 @@ export function AdminPanel() {
                 <div>
                   <span className={styles.eyebrow}>PLANOS</span>
                   <h2>Configuração comercial</h2>
-                  <p>Edite limites, preços visuais e associe os Price IDs da Stripe.</p>
+                  <p>Edite preço, descrição, limites e a conexão de cada plano com a Stripe.</p>
                 </div>
 
                 <button className={styles.primary} onClick={()=>void savePlans()} disabled={loading||plans.length!==3}>
@@ -492,30 +501,43 @@ export function AdminPanel() {
               <div className={styles.plans}>
                 {plans.map(plan=><section key={plan.id} className={styles.plan+" "+(plan.popular?styles.popular:"")}>
                   <div className={styles.planHead}>
-                    <h3>{plan.name}</h3>
+                    <div>
+                      <span className={styles.eyebrow}>{plan.id.toUpperCase()}</span>
+                      <h3>{plan.name}</h3>
+                    </div>
                     <span className={styles.badge+" "+(plan.id==="free"?"":styles.gold)}>
                       {money(plan.priceCents)}{plan.id==="free"?"":"/mês"}
                     </span>
                   </div>
 
-                  <div className={styles.planGrid}>
-                    <label className={styles.field}>Nome
-                      <input value={plan.name} onChange={event=>editPlan(plan.id,{name:event.target.value})}/>
-                    </label>
+                  <label className={styles.field}>Nome do plano
+                    <input value={plan.name} onChange={event=>editPlan(plan.id,{name:event.target.value})}/>
+                  </label>
 
-                    <label className={styles.field}>Preço (centavos)
-                      <input type="number" min="0" value={plan.priceCents} onChange={event=>editPlan(plan.id,{priceCents:Number(event.target.value)})}/>
+                  <label className={styles.field}>Descrição
+                    <textarea value={plan.description} maxLength={180} onChange={event=>editPlan(plan.id,{description:event.target.value})}/>
+                  </label>
+
+                  <div className={styles.planGrid}>
+                    <label className={styles.field}>Preço (R$)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={(plan.priceCents/100).toFixed(2)}
+                        onChange={event=>editPlan(plan.id,{priceCents:Math.max(0,Math.round(Number(event.target.value||0)*100))})}
+                      />
                     </label>
 
                     <label className={styles.field}>Pesquisas {plan.id==="unlimited"?"(vazio = ilimitado)":""}
                       <input type="number" min="1" value={plan.searchLimit??""} onChange={event=>editPlan(plan.id,{searchLimit:event.target.value?Number(event.target.value):null})}/>
                     </label>
 
-                    <label className={styles.field}>Resultados/pesquisa
+                    <label className={styles.field}>Resultados por pesquisa
                       <input type="number" min="1" value={plan.resultsPerSearch} onChange={event=>editPlan(plan.id,{resultsPerSearch:Number(event.target.value)})}/>
                     </label>
 
-                    <label className={styles.field}>Máx. resultados {plan.id==="unlimited"?"(vazio = ilimitado)":""}
+                    <label className={styles.field}>Máximo de resultados {plan.id==="unlimited"?"(vazio = ilimitado)":""}
                       <input type="number" min="1" value={plan.resultLimit??""} onChange={event=>editPlan(plan.id,{resultLimit:event.target.value?Number(event.target.value):null})}/>
                     </label>
 
@@ -526,7 +548,7 @@ export function AdminPanel() {
                       </select>
                     </label>
 
-                    {plan.id!=="free"&&<label className={styles.field+" "+styles.wide}>Stripe Price ID
+                    {plan.id!=="free"&&<label className={styles.field}>Stripe Price ID
                       <input value={plan.stripePriceId} onChange={event=>editPlan(plan.id,{stripePriceId:event.target.value})} placeholder="price_..."/>
                     </label>}
                   </div>
