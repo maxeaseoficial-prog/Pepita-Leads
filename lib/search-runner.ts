@@ -74,7 +74,7 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
     result.dataset.mode="GOOGLE_MAPS_RFB_ENRICHED";
-    result.dataset.reference="Google Maps + base pública CNPJ/RFB da Pepita";
+    result.dataset.reference="Google Maps + CNPJ/RFB quando houver correspondência confiável";
   }
 
   return result;
