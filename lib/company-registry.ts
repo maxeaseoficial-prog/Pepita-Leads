@@ -428,6 +428,8 @@ export function registryRecordToLead(record:RegistryRecord):CompanyLead {
     address:null,
     postalCode:null,
     phone:record.phone,
+    registeredPhone:record.phone,
+    registeredPhone2:null,
     whatsapp:null,
     ownerPhone:null,
     ownerWhatsapp:null,
@@ -456,7 +458,9 @@ function mergeLead(lead:CompanyLead,record:RegistryRecord):CompanyLead {
     capitalSocialCents:record.capitalSocialCents??lead.capitalSocialCents,
     city:record.city||lead.city,
     state:record.state||lead.state,
-    phone:record.phone||lead.phone,
+    phone:lead.phone||record.phone,
+    registeredPhone:record.phone||lead.registeredPhone||null,
+    registeredPhone2:lead.registeredPhone2||null,
     email:record.email||lead.email,
     partners:record.partners.length?record.partners:(lead.partners||[])
   };
