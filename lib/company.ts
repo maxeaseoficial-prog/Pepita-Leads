@@ -1,4 +1,4 @@
-import { formatCnpj, sizeLabel, yearsBetween } from "./format";
+import { formatCnpj, normalizeCnpj, sizeLabel, yearsBetween } from "./format";
 import { fetchBrasilApi, registryRecordToLead } from "./company-registry";
 import { getRfbDatasetStatus, getRfbSql, hasDedicatedRfbDatabase, rfbTable } from "./rfb-db";
 import { getRfbApiCompanyDetail } from "./rfb-api";
@@ -23,7 +23,7 @@ async function fallbackRegistry(cnpj:string):Promise<CompanyDetail|null> {
 }
 
 export async function getCompanyDetail(cnpj:string):Promise<CompanyDetail|null> {
-  const normalizedCnpj=cnpj.replace(/\D/g,"");
+  const normalizedCnpj=normalizeCnpj(cnpj);
   const status=await getRfbDatasetStatus();
 
   if(!status.ready) return fallbackRegistry(normalizedCnpj);
