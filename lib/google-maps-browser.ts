@@ -1,6 +1,6 @@
 import serverChromium from "@sparticuz/chromium";
 import { chromium, type Browser, type Page } from "playwright-core";
-import { instagramFromWebsite } from "./google-places";
+import { contactsFromWebsite } from "./google-places";
 import type { CompanyLead, SearchPayload, SearchResponse, SocialMatch } from "./types";
 
 const MAX_RESULTS=20;
@@ -327,19 +327,24 @@ function scorePlace(place:ScrapedPlace) {
 }
 
 async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:SearchSession):Promise<CompanyLead> {
+  const websiteContacts=place.website
+    ? await contactsFromWebsite(place.website).catch(()=>({instagram:null,whatsapp:null,phone:null,email:null}))
+    : {instagram:null,whatsapp:null,phone:null,email:null};
+
   let instagram:SocialMatch|null=null;
   if(input.findInstagram) {
     const mapsInstagram=instagramProfileUrl(place.website);
     if(mapsInstagram) {
       instagram={url:mapsInstagram,confidence:"CONFIRMED_FROM_MAPS_WEBSITE",source:"GOOGLE_MAPS"};
     } else {
-      instagram=place.website?await instagramFromWebsite(place.website):null;
+      instagram=websiteContacts.instagram;
       if(!instagram) instagram=await instagramFromWebSearch(page,place,input,session).catch(()=>null);
     }
   }
+
   return {
     cnpj:"",
-    cnpjFormatted:"Não disponível nesta fonte",
+    cnpjFormatted:"Não localizado",
     legalName:place.name,
     tradeName:place.name,
     category:place.category||input.niche,
@@ -355,8 +360,11 @@ async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:S
     state:stateFromAddress(place.address,input.state),
     address:place.address,
     postalCode:null,
-    phone:place.phone,
-    email:null,
+    phone:place.phone||websiteContacts.phone,
+    whatsapp:websiteContacts.whatsapp,
+    ownerPhone:null,
+    ownerWhatsapp:null,
+    email:websiteContacts.email,
     website:place.website,
     mapsUrl:place.mapsUrl,
     social:{instagram},
