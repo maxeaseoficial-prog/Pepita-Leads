@@ -2,6 +2,7 @@ import { getHealth } from "./health";
 import { searchCompanies } from "./search";
 import { searchGoogleMaps } from "./google-maps-browser";
 import { enrichMapResultsFromRfb } from "./rfb-enrichment";
+import { enrichLeadsFromRegistry } from "./company-registry";
 import type { SearchPayload, SearchResponse } from "./types";
 
 function objectFromUnknown(value:unknown):Record<string,unknown> {
@@ -69,12 +70,13 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
     const health=await getHealth();
     result.dataset.reference=health.datasetReference||null;
   } else {
-    const enriched=await enrichMapResultsFromRfb(result.results,payload);
-    result.results=enriched.slice(0,result.requested);
+    const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload);
+    const registryEnriched=await enrichLeadsFromRegistry(rfbEnriched,payload);
+    result.results=registryEnriched.slice(0,result.requested);
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
-    result.dataset.mode="GOOGLE_MAPS_RFB_ENRICHED";
-    result.dataset.reference="Google Maps + CNPJ/RFB quando houver correspondência confiável";
+    result.dataset.mode="GOOGLE_MAPS_REGISTRY_ENRICHED";
+    result.dataset.reference="Google Maps + base RFB local + validação pública de CNPJ quando houver correspondência confiável";
   }
 
   return result;
