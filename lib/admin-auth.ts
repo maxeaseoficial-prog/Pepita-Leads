@@ -80,11 +80,25 @@ export async function grantFirstAdmin(user:User) {
 }
 
 export async function setUserPlanMetadata(userId:string,plan:"free"|"basic"|"unlimited") {
-  const client=adminSupabase();
-  const {data,error}=await client.auth.admin.getUserById(userId);
-  if(error||!data.user) throw new Error(error?.message||"USER_NOT_FOUND");
+  if(adminServiceConfigured()) {
+    const client=adminSupabase();
+    const {data,error}=await client.auth.admin.getUserById(userId);
+    if(error||!data.user) throw new Error(error?.message||"USER_NOT_FOUND");
 
-  const appMetadata={...(data.user.app_metadata||{}),pepita_plan:plan};
-  const {error:updateError}=await client.auth.admin.updateUserById(userId,{app_metadata:appMetadata});
-  if(updateError) throw new Error(updateError.message);
+    const appMetadata={...(data.user.app_metadata||{}),pepita_plan:plan};
+    const {error:updateError}=await client.auth.admin.updateUserById(userId,{app_metadata:appMetadata});
+    if(updateError) throw new Error(updateError.message);
+    return;
+  }
+
+  const sql=getSql();
+  const rows=await sql.query(`
+    update auth.users
+    set raw_app_meta_data=coalesce(raw_app_meta_data,'{}'::jsonb)||jsonb_build_object('pepita_plan',$2::text),
+        updated_at=now()
+    where id::text=$1
+    returning id
+  `,[userId,plan]);
+
+  if(!rows.length) throw new Error("USER_NOT_FOUND");
 }
