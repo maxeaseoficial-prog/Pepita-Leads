@@ -15,7 +15,6 @@ export async function GET(request:NextRequest) {
     authenticated:Boolean(user),
     admin,
     bootstrapAvailable:totalAdmins===0,
-    adminSetupConfigured:Boolean(process.env.ADMIN_SECRET),
     serviceRoleConfigured:adminServiceConfigured(),
     stripeSecretConfigured:Boolean(stripe.secretKey),
     stripeWebhookConfigured:Boolean(stripe.webhookSecret),
