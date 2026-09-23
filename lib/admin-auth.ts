@@ -1,5 +1,4 @@
 import { createClient, type User } from "@supabase/supabase-js";
-import { timingSafeEqual } from "crypto";
 import { getSql } from "./db";
 
 function bearer(request:Request) {
@@ -57,26 +56,25 @@ export async function adminCount() {
   return Number((rows[0] as {total?:number}|undefined)?.total||0);
 }
 
-function secureEqual(left:string,right:string) {
-  const a=Buffer.from(left,"utf8");
-  const b=Buffer.from(right,"utf8");
-  return a.length===b.length&&timingSafeEqual(a,b);
-}
-
-export function validBootstrapSecret(value:string) {
-  const secret=process.env.ADMIN_SECRET||"";
-  return Boolean(secret&&value&&secureEqual(secret,value));
-}
-
 export async function grantFirstAdmin(user:User) {
   const sql=getSql();
-  const total=await adminCount();
-  if(total>0) throw new Error("ADMIN_ALREADY_EXISTS");
 
-  await sql.query(
-    "insert into admin_users(user_id,email,role,active) values($1,$2,'owner',true) on conflict(user_id) do nothing",
-    [user.id,user.email||null]
-  );
+  await sql.query("begin");
+  try {
+    await sql.query("select pg_advisory_xact_lock(hashtext('pepita_first_admin'))");
+    const rows=await sql.query("select count(*)::int as total from admin_users where active=true");
+    const total=Number((rows[0] as {total?:number}|undefined)?.total||0);
+    if(total>0) throw new Error("ADMIN_ALREADY_EXISTS");
+
+    await sql.query(
+      "insert into admin_users(user_id,email,role,active) values($1,$2,'owner',true)",
+      [user.id,user.email||null]
+    );
+    await sql.query("commit");
+  } catch(error) {
+    await sql.query("rollback").catch(()=>undefined);
+    throw error;
+  }
 }
 
 export async function setUserPlanMetadata(userId:string,plan:"free"|"basic"|"unlimited") {
