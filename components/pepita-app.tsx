@@ -1387,7 +1387,10 @@ function ResultsView({
 }
 
 function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
-  const digits=(item.phone||"").replace(/\D/g,"");
+  const phoneDigits=(item.phone||"").replace(/\D/g,"");
+  const companyWhatsappDigits=(item.whatsapp||"").replace(/\D/g,"");
+  const ownerPhoneDigits=(item.ownerPhone||"").replace(/\D/g,"");
+  const ownerWhatsappDigits=(item.ownerWhatsapp||"").replace(/\D/g,"");
   const fromMaps=!item.cnpj;
   const instagramUrl=item.social?.instagram?.url||null;
   const websiteUrl=item.website&&!/^(https?:\/\/)?(www\.)?instagram\.com\//i.test(item.website)?item.website:null;
@@ -1395,29 +1398,58 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const partnerSummary=partnerNames.length
     ? partnerNames.length<=2?partnerNames.join(" · "):`${partnerNames.slice(0,2).join(" · ")} +${partnerNames.length-2}`
     : "Não localizado";
+  const companyWhatsapp=item.whatsapp||"Não localizado";
+  const ownerPhone=item.ownerPhone||"Não localizado";
+  const ownerWhatsapp=item.ownerWhatsapp||"Não localizado";
+  const companyName=item.tradeName||item.legalName;
+
+  const waHref=(digits:string)=>{
+    if(!digits) return "";
+    const normalized=digits.startsWith("55")&&digits.length>=12?digits:`55${digits}`;
+    return `https://wa.me/${normalized}`;
+  };
+
   return (
     <article className="resultCard">
       <div className="resultTop">
         <div className="companyMark"><BuildingIcon/></div>
-        <div className="resultTitle"><h3>{item.tradeName || item.legalName}</h3><span>{item.category || item.cnae} · {item.city}/{item.state}</span></div>
+        <div className="resultTitle">
+          <h3 title={companyName}>{companyName}</h3>
+          <span title={`${item.category||item.cnae||""} · ${item.city||""}/${item.state||""}`}>
+            {item.category || item.cnae} · {item.city}/{item.state}
+          </span>
+        </div>
         <span className={`potentialTag ${item.potential.level.toLowerCase()}`}>{potentialLabel(item.potential.level)}</span>
       </div>
-      <div className="tagRow">{fromMaps?<><span>Google Maps</span><span>CNPJ não confirmado</span></>:<><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}</div>
+
+      <div className="tagRow">
+        {fromMaps
+          ? <><span>Google Maps</span><span>CNPJ não localizado</span></>
+          : <><span>{item.companySize}</span><span>{item.matrixBranch}</span><span>{item.ageYears ?? "?"} ano(s)</span></>}
+      </div>
+
       <div className="infoGrid">
         <Info label="CNPJ" value={item.cnpjFormatted||"Não localizado"}/>
-        {!fromMaps&&<Info label="Capital social" value={money(item.capitalSocialCents)}/>}
         <Info label="Sócios" value={partnerSummary}/>
-        <Info label={item.cnpj?"Telefone cadastral":"Telefone público"} value={item.phone || "Não informado"}/>
-        <Info label={item.cnpj?"E-mail cadastral":"E-mail"} value={item.email || "Não informado"}/>
-        <Info label="Site" value={websiteUrl || "Não encontrado"}/>
-        <Info label="Instagram" value={instagramUrl || "Não confirmado"}/>
+        {!fromMaps&&<Info label="Capital social" value={money(item.capitalSocialCents)}/>}
+        <Info label="Telefone da empresa" value={item.phone||"Não localizado"}/>
+        <Info label="WhatsApp da empresa" value={companyWhatsapp}/>
+        <Info label="Telefone do responsável" value={ownerPhone}/>
+        <Info label="WhatsApp do responsável" value={ownerWhatsapp}/>
+        <Info label={item.cnpj?"E-mail cadastral":"E-mail"} value={item.email||"Não informado"}/>
+        <Info label="Site" value={websiteUrl||"Não encontrado"}/>
+        <Info label="Instagram" value={instagramUrl||"Não confirmado"}/>
         {fromMaps&&<Info label="Endereço" value={item.address||"Não informado"}/>}
       </div>
+
       <div className="cardActions">
-        {item.mapsUrl && <a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
-        {digits && <a href={`https://wa.me/55${digits}`} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp</a>}
-        {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
-        {instagramUrl && <a href={instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon/>Instagram</a>}
+        {item.mapsUrl&&<a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
+        {phoneDigits&&<a href={`tel:+55${phoneDigits.startsWith("55")?phoneDigits.slice(2):phoneDigits}`}><PhoneIcon/>Ligar empresa</a>}
+        {companyWhatsappDigits&&<a href={waHref(companyWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp empresa</a>}
+        {ownerPhoneDigits&&<a href={`tel:+55${ownerPhoneDigits.startsWith("55")?ownerPhoneDigits.slice(2):ownerPhoneDigits}`}><PhoneIcon/>Ligar responsável</a>}
+        {ownerWhatsappDigits&&<a href={waHref(ownerWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp responsável</a>}
+        {websiteUrl&&<a href={websiteUrl} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
+        {instagramUrl&&<a href={instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon/>Instagram</a>}
         {onDetail&&<button className="primarySmall" onClick={onDetail}>Ver detalhes <ArrowRightIcon/></button>}
       </div>
     </article>
