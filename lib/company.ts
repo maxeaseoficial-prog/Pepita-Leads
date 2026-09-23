@@ -2,6 +2,7 @@ import { getSql } from "./db";
 import { formatCnpj, sizeLabel, yearsBetween } from "./format";
 import { scoreCompany } from "./scoring";
 import type { CompanyDetail } from "./types";
+import { fetchBrasilApi, registryRecordToLead } from "./company-registry";
 
 export async function getCompanyDetail(cnpj: string): Promise<CompanyDetail | null> {
   const sql = getSql();
@@ -19,7 +20,21 @@ export async function getCompanyDetail(cnpj: string): Promise<CompanyDetail | nu
   `,[cnpj]);
 
   const row:any = rows[0];
-  if (!row) return null;
+  if (!row) {
+    const registry=await fetchBrasilApi(cnpj.replace(/\D/g,""));
+    if(!registry) return null;
+    const lead=registryRecordToLead(registry);
+    return {
+      ...lead,
+      partners:lead.partners||[],
+      simpleOption:null,
+      meiOption:null,
+      source:{
+        provider:registry.source,
+        note:"Dados cadastrais públicos validados por CNPJ e armazenados no cache da Pepita."
+      }
+    };
+  }
 
   const partners = await sql.query(`
     SELECT p.name,q.label AS qualification,p.entry_date AS "entryDate"
