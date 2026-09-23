@@ -109,14 +109,14 @@ export async function enrichMapResultsFromRfb(results:CompanyLead[],input:Search
     cityJoin="join municipalities m on m.code=e.municipality_code";
     citySelect="m.name as city";
     params.push(normalizeText(input.city));
-    cityFilter=`and m.normalized_name=${p++}`;
+    cityFilter=`and m.normalized_name=$${p++}`;
   }
 
   const nameExpr=`regexp_replace(translate(upper(coalesce(nullif(e.trade_name,''),c.legal_name)),'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇÑ','AAAAAEEEEIIIIOOOOOUUUUCN'),'[^A-Z0-9]+',' ','g')`;
   const conditions=groups.map(tokens=>{
     const parts=tokens.map(token=>{
       params.push(`%${token.replace(/[\\%_]/g,char=>`\\${char}`)}%`);
-      return `${nameExpr} like ${p++} escape '\\'`;
+      return `${nameExpr} like $${p++} escape '\\'`;
     });
     return `(${parts.join(" and ")})`;
   });
@@ -140,7 +140,7 @@ export async function enrichMapResultsFromRfb(results:CompanyLead[],input:Search
       case when coalesce(e.phone1,e.phone2,'')<>'' then 0 else 1 end,
       coalesce(e.trade_name,c.legal_name),
       e.cnpj
-    limit ${p}
+    limit $${p}
   `,params) as unknown as Row[];
 
   const matched=new Map<number,Row>();
