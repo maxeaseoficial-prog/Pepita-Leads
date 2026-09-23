@@ -23,8 +23,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 WEBDAV_BASE = "https://arquivos.receitafederal.gov.br/public.php/webdav"
-CNPJ_PATH = "Dados/Cadastros/CNPJ"
-DEFAULT_SHARE_TOKEN = "gn672Ad4CF8N6TK"
+CNPJ_PATH = ""
+DEFAULT_SHARE_TOKEN = "YggdBLfdninEJX9"
 USER_AGENT = "PepitaRFBDownloader/2.0"
 NS = {"d": "DAV:"}
 PERIOD_RE = re.compile(r"/(\d{4}-\d{2})/$")
@@ -87,7 +87,7 @@ def propfind(path: str) -> list[dict]:
 
 def latest_month() -> str:
     periods = []
-    for entry in propfind(CNPJ_PATH):
+    for entry in propfind(""):
         match = PERIOD_RE.search(entry["href"])
         if match:
             periods.append(match.group(1))
@@ -101,7 +101,7 @@ def list_zip_urls(month: str, include_prefixes: set[str] | None = None) -> list[
     files = []
     seen = set()
 
-    for entry in propfind(f"{CNPJ_PATH}/{month}"):
+    for entry in propfind(month):
         name = entry["href"].rstrip("/").rsplit("/", 1)[-1]
         if not name.lower().endswith(".zip"):
             continue
@@ -138,7 +138,7 @@ def download(month: str, name: str, target: Path, expected_size: int | None):
             mode = "ab"
 
         quoted_name = urllib.parse.quote(name)
-        url = f"{WEBDAV_BASE}/{CNPJ_PATH}/{month}/{quoted_name}"
+        url = f"{WEBDAV_BASE}/{month}/{quoted_name}"
 
         print(
             f"Baixando {name} tentativa {attempt}/6"
