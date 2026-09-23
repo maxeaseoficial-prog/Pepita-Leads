@@ -1374,6 +1374,8 @@ function ResultsView({
 
 function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
   const phoneDigits=(item.phone||"").replace(/\D/g,"");
+  const registeredPhoneDigits=(item.registeredPhone||"").replace(/\D/g,"");
+  const registeredPhone2Digits=(item.registeredPhone2||"").replace(/\D/g,"");
   const companyWhatsappDigits=(item.whatsapp||"").replace(/\D/g,"");
   const ownerPhoneDigits=(item.ownerPhone||"").replace(/\D/g,"");
   const ownerWhatsappDigits=(item.ownerWhatsapp||"").replace(/\D/g,"");
@@ -1419,7 +1421,9 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
         <Info label="CNPJ" value={item.cnpjFormatted||"Não localizado"}/>
         <Info label="Sócios" value={partnerSummary}/>
         {!fromMaps&&<Info label="Capital social" value={money(item.capitalSocialCents)}/>}
-        <Info label="Telefone da empresa" value={item.phone||"Não localizado"}/>
+        <Info label="Telefone público" value={item.phone||"Não localizado"}/>
+        <Info label="Telefone cadastral" value={item.registeredPhone||"Não localizado"}/>
+        {item.registeredPhone2&&<Info label="Telefone cadastral 2" value={item.registeredPhone2}/>}
         <Info label="WhatsApp da empresa" value={companyWhatsapp}/>
         <Info label="Telefone do responsável" value={ownerPhone}/>
         <Info label="WhatsApp do responsável" value={ownerWhatsapp}/>
@@ -1431,7 +1435,9 @@ function ResultCard({item,onDetail}:{item:CompanyLead;onDetail?:()=>void}) {
 
       <div className="cardActions">
         {item.mapsUrl&&<a href={item.mapsUrl} target="_blank" rel="noreferrer"><MapPinIcon/>Maps</a>}
-        {phoneDigits&&<a href={telHref(phoneDigits)}><PhoneIcon/>Ligar empresa</a>}
+        {phoneDigits&&<a href={telHref(phoneDigits)}><PhoneIcon/>Ligar público</a>}
+        {registeredPhoneDigits&&registeredPhoneDigits!==phoneDigits&&<a href={telHref(registeredPhoneDigits)}><PhoneIcon/>Ligar cadastral</a>}
+        {registeredPhone2Digits&&registeredPhone2Digits!==phoneDigits&&registeredPhone2Digits!==registeredPhoneDigits&&<a href={telHref(registeredPhone2Digits)}><PhoneIcon/>Ligar cadastral 2</a>}
         {companyWhatsappDigits&&<a href={waHref(companyWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp empresa</a>}
         {ownerPhoneDigits&&<a href={telHref(ownerPhoneDigits)}><PhoneIcon/>Ligar responsável</a>}
         {ownerWhatsappDigits&&<a href={waHref(ownerWhatsappDigits)} target="_blank" rel="noreferrer"><PhoneIcon/>WhatsApp responsável</a>}
