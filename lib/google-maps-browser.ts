@@ -195,7 +195,8 @@ function cacheKey(input:SearchPayload) {
     quantity:Math.min(input.quantity,MAX_RESULTS),
     hasPhone:input.hasPhone,
     onlyWithoutSite:input.onlyWithoutSite,
-    findInstagram:input.findInstagram
+    findInstagram:input.findInstagram,
+    exactCompany:input.exactCompany===true
   });
 }
 
@@ -372,6 +373,59 @@ async function specificCompanyFromWebSearch(page:Page,input:SearchPayload):Promi
   };
 }
 
+function decodedDuckDuckGoUrl(value:string) {
+  try {
+    const parsed=new URL(value,"https://duckduckgo.com");
+    const target=parsed.searchParams.get("uddg");
+    const decoded=target?decodeURIComponent(target):parsed.href;
+    return /^https?:\/\//i.test(decoded)?decoded:null;
+  } catch {
+    return null;
+  }
+}
+
+async function specificCompanyFromPublicTextSearch(input:SearchPayload):Promise<ScrapedPlace|null> {
+  const query=[input.niche,input.city,input.state,"Brasil"].filter(Boolean).join(" ");
+  const source=`http://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+  const response=await fetch(`https://r.jina.ai/${source}`,{
+    headers:{"User-Agent":"PepitaBusinessLookup/1.0"},
+    signal:AbortSignal.timeout(18_000)
+  });
+  const document=await response.text();
+  if(!response.ok||/No more results found|requiring captcha/i.test(document)) return null;
+
+  const candidates:{url:string;title:string;text:string}[]=[];
+  const pattern=/^##\s+\[([^\]]+)\]\(([^)]+)\)([\s\S]*?)(?=^##\s+\[|^\[Feedback\]|(?![\s\S]))/gim;
+  for(const match of document.matchAll(pattern)) {
+    const url=decodedDuckDuckGoUrl(match[2]);
+    if(url) candidates.push({url,title:clean(match[1]),text:clean(match[3])});
+  }
+
+  const blockedHosts=/wikipedia|steampowered|steamcommunity|playcaliber|calibre-ebook|caliberstrong|youtube|facebook|linkedin|instagram|cnpj\.biz|consultacnpj|acheiempresa|contactout/i;
+  let best:{url:string;title:string;score:number}|null=null;
+  for(const candidate of candidates.slice(0,12)) {
+    const host=new URL(candidate.url).hostname;
+    if(blockedHosts.test(host)) continue;
+    const content=`${candidate.title} ${candidate.text}`;
+    const tokenScore=nameMatchScore(input.niche,content);
+    const hostScore=nameMatchScore(input.niche,host.replace(/\./g," "));
+    const businessBonus=/empresa|consultoria|negocio|corporativ|gestao|servico/i.test(content)?.3:0;
+    const brazilBonus=/\.com\.br$|\.br$/i.test(host)?.15:0;
+    const score=tokenScore+hostScore*.6+businessBonus+brazilBonus;
+    if(!best||score>best.score) best={url:candidate.url,title:candidate.title,score};
+  }
+
+  if(!best||best.score<.7) return null;
+  return {
+    name:best.title.replace(/\s+[—|]\s+.*$/,"" ).trim()||input.niche,
+    category:"Empresa",
+    address:null,
+    phone:null,
+    website:best.url,
+    mapsUrl:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.niche)}`
+  };
+}
+
 function scorePlace(place:ScrapedPlace) {
   const score=45+(place.phone?15:0)+(place.website?15:0)+(place.address?10:0);
   return {
@@ -482,7 +536,9 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     }
 
     if(!places.length&&input.exactCompany) {
-      const webPlace=await specificCompanyFromWebSearch(page,input).catch(()=>null);
+      let webPlace=await specificCompanyFromWebSearch(page,input).catch(()=>null);
+      if(!webPlace) webPlace=await specificCompanyFromPublicTextSearch(input).catch(()=>null);
+      console.info("EXACT_COMPANY_LOOKUP",{query:input.niche,found:Boolean(webPlace),source:webPlace?.website||null});
       if(webPlace) places.push(webPlace);
     }
 
