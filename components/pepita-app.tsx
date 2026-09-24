@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import type {
   CompanyDetail,
@@ -794,7 +794,7 @@ export function PepitaApp() {
       notifySearchFinished(job);
       setCurrentSearch(job.payload);
       setResults(job.result.results);
-      setSelectedResultKeys(job.result.results.map(resultKey));
+      setSelectedResultKeys([]);
       setCrmLeadStates({});
       setCrmLeadErrors({});
       setDataset(job.result.dataset);
@@ -997,7 +997,7 @@ export function PepitaApp() {
   function restoreHistory(item:HistoryItem) {
     setCurrentSearch(item.payload);
     setResults(item.result.results);
-    setSelectedResultKeys(item.result.results.map(resultKey));
+    setSelectedResultKeys([]);
     setCrmLeadStates({});
     setCrmLeadErrors({});
     setDataset(item.result.dataset);
@@ -1346,7 +1346,6 @@ function ResultsView({
 
   const availableResults=results.filter(item=>crmLeadStates[resultKey(item)]!=="added");
   const selectedResults=availableResults.filter(item=>selectedKeys.includes(resultKey(item)));
-  const allSelected=availableResults.length>0&&selectedResults.length===availableResults.length;
   return (
     <div className="viewScroll">
       <div className="sectionHeader">
@@ -1369,10 +1368,9 @@ function ResultsView({
 
           {!!results.length&&<div className="crmInvite">
             <div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div>
-            <div className="crmInviteCopy"><strong>Escolha os leads para o CRM</strong><p>Seleção: {selectedResults.length} de {availableResults.length}. Você também pode adicionar uma empresa diretamente pelo card.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div>
+            <div className="crmInviteCopy"><strong>Escolha os leads para o CRM</strong><p>{selectedResults.length?`${selectedResults.length} ${selectedResults.length===1?"empresa selecionada":"empresas selecionadas"}.`:"Clique nos cards que deseja selecionar."} Você também pode adicionar uma empresa diretamente pelo card.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div>
             <div className="crmInviteActions">
-              <button className="selectionButton" disabled={!availableResults.length} onClick={()=>onSelectionChange(allSelected?[]:availableResults.map(resultKey))}>{!availableResults.length?"Todos adicionados":allSelected?"Limpar seleção":"Selecionar todos"}</button>
-              <button className="primaryButton" disabled={crmImporting||!selectedResults.length} onClick={()=>onAddToCrm(selectedResults)}>{crmImporting?"Adicionando…":`Adicionar ${selectedResults.length} ao CRM`} <ArrowRightIcon/></button>
+              <button className="primaryButton" disabled={crmImporting||!selectedResults.length} onClick={()=>onAddToCrm(selectedResults)}>{crmImporting?"Adicionando…":selectedResults.length?`Adicionar ${selectedResults.length} ao CRM`:"Adicionar selecionados ao CRM"} <ArrowRightIcon/></button>
             </div>
           </div>}
 
@@ -1468,10 +1466,29 @@ function ResultCard({item,sourceLabel,selected,selectionDisabled,onSelectedChang
   };
   const waHref=(digits:string)=>digits?`https://wa.me/${internationalDigits(digits)}`:"";
   const telHref=(digits:string)=>digits?`tel:+${internationalDigits(digits)}`:"";
+  const toggleSelection=()=>{
+    if(!selectionDisabled) onSelectedChange(!selected);
+  };
+  const handleCardClick=(event:ReactMouseEvent<HTMLElement>)=>{
+    if((event.target as HTMLElement).closest("a,button")) return;
+    toggleSelection();
+  };
+  const handleCardKeyDown=(event:ReactKeyboardEvent<HTMLElement>)=>{
+    if(event.target!==event.currentTarget||selectionDisabled) return;
+    if(event.key==="Enter"||event.key===" ") {
+      event.preventDefault();
+      toggleSelection();
+    }
+  };
   return (
-    <article className={`resultCard ${selected?"selected":""}`} aria-label={`${companyName}${selected?", selecionada":""}`}>
+    <article
+      className={`resultCard ${selected?"selected":""} ${selectionDisabled?"selectionDisabled":""}`}
+      aria-label={`${companyName}${selectionDisabled?", já está no CRM":selected?", selecionada":". Clique para selecionar"}`}
+      tabIndex={selectionDisabled?-1:0}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+    >
       <div className="resultTop">
-        <label className="resultSelector"><input type="checkbox" aria-label={selectionDisabled?`${companyName} já está no CRM`:`Selecionar ${companyName}`} checked={selected} disabled={selectionDisabled} onChange={event=>onSelectedChange(event.target.checked)}/><span>{selectionDisabled?"No CRM":"Selecionar"}</span></label>
         <div className="companyMark"><BuildingIcon/></div>
         <div className="resultTitle">
           <h3 title={companyName}>{companyName}</h3>
