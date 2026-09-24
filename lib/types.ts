@@ -16,6 +16,7 @@ export type SearchPayload = {
   matrixOnly: boolean;
   onlyWithoutSite: boolean;
   findInstagram: boolean;
+  exactCompany?: boolean;
 };
 
 export type Potential = {

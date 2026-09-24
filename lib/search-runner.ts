@@ -55,7 +55,8 @@ export function normalizeSearchPayload(value:unknown):SearchPayload {
     hasEmail:raw.hasEmail!==false,
     matrixOnly:raw.matrixOnly===true,
     onlyWithoutSite:raw.onlyWithoutSite===true,
-    findInstagram:raw.findInstagram!==false
+    findInstagram:raw.findInstagram!==false,
+    exactCompany:raw.exactCompany===true
   };
 }
 
@@ -63,14 +64,16 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
   const payload=normalizeSearchPayload(rawPayload);
 
   if(!payload.niche) throw new Error("Informe o nicho.");
-  if(!payload.city) throw new Error("Informe a cidade.");
+  if(!payload.city&&!payload.exactCompany) throw new Error("Informe a cidade.");
 
-  const useRfb=process.env.SEARCH_PROVIDER==="RFB";
+  const useRfb=process.env.SEARCH_PROVIDER==="RFB"&&!payload.exactCompany;
   let result:SearchResponse;
   if(useRfb) {
     result=await searchCompanies(payload);
   } else {
-    const publicDirectory=await searchOpenStreetMap(payload).catch(()=>null);
+    const publicDirectory=payload.exactCompany
+      ?null
+      :await searchOpenStreetMap(payload).catch(()=>null);
     result=publicDirectory?.results.length
       ?publicDirectory
       :await searchGoogleMaps(payload);

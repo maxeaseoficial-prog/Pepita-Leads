@@ -199,6 +199,9 @@ function defaultSearch():SearchPayload {
 }
 
 function enforceRequiredLeadFilters(payload:SearchPayload):SearchPayload {
+  if(payload.exactCompany) {
+    return {...payload,activeOnly:true,hasPhone:false,hasEmail:false};
+  }
   return {
     ...payload,
     activeOnly:true,
@@ -1345,7 +1348,6 @@ function ResultsView({
   }
 
   const availableResults=results.filter(item=>crmLeadStates[resultKey(item)]!=="added");
-  const selectedResults=availableResults.filter(item=>selectedKeys.includes(resultKey(item)));
   return (
     <div className="viewScroll">
       <div className="sectionHeader">
@@ -1368,9 +1370,9 @@ function ResultsView({
 
           {!!results.length&&<div className="crmInvite">
             <div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div>
-            <div className="crmInviteCopy"><strong>Escolha os leads para o CRM</strong><p>{selectedResults.length?`${selectedResults.length} ${selectedResults.length===1?"empresa selecionada":"empresas selecionadas"}.`:"Clique nos cards que deseja selecionar."} Você também pode adicionar uma empresa diretamente pelo card.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div>
+            <div className="crmInviteCopy"><strong>Deseja colocar estes leads no CRM?</strong><p>Adicione todos os resultados de uma vez ou use o botão individual de cada empresa.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div>
             <div className="crmInviteActions">
-              <button className="primaryButton" disabled={crmImporting||!selectedResults.length} onClick={()=>onAddToCrm(selectedResults)}>{crmImporting?"Adicionando…":selectedResults.length?`Adicionar ${selectedResults.length} ao CRM`:"Adicionar selecionados ao CRM"} <ArrowRightIcon/></button>
+              <button className="primaryButton" disabled={crmImporting||!availableResults.length} onClick={()=>onAddToCrm(availableResults)}>{crmImporting?"Adicionando…":availableResults.length?`Adicionar ${availableResults.length} ao CRM`:"Todos adicionados ao CRM"} <ArrowRightIcon/></button>
             </div>
           </div>}
 
@@ -1386,7 +1388,7 @@ function ResultsView({
                   sourceLabel={dataset?.mode.startsWith("OPENSTREETMAP")?"OpenStreetMap":"Google Maps"}
                   selected={selectedKeys.includes(key)}
                   selectionDisabled={crmLeadStates[key]==="added"}
-                  onSelectedChange={selected=>onSelectionChange(selected?[...new Set([...selectedKeys,key])]:selectedKeys.filter(itemKey=>itemKey!==key))}
+                  onSelectedChange={selected=>onSelectionChange(selected?[key]:[])}
                   onAddToCrm={()=>onAddOneToCrm(item)}
                   crmState={crmLeadStates[key]}
                   crmError={crmLeadErrors[key]}
@@ -1459,6 +1461,8 @@ function ResultCard({item,sourceLabel,selected,selectionDisabled,onSelectedChang
   const ownerPhone=item.ownerPhone||"Não localizado";
   const ownerWhatsapp=item.ownerWhatsapp||"Não localizado";
   const companyName=item.tradeName||item.legalName;
+  const companyLocation=[item.city,item.state].filter(Boolean).join("/");
+  const companySubtitle=[item.category||item.cnae,companyLocation].filter(Boolean).join(" · ");
 
   const internationalDigits=(digits:string)=>{
     if(!digits) return "";
@@ -1483,7 +1487,7 @@ function ResultCard({item,sourceLabel,selected,selectionDisabled,onSelectedChang
   return (
     <article
       className={`resultCard ${selected?"selected":""} ${selectionDisabled?"selectionDisabled":""}`}
-      aria-label={`${companyName}${selectionDisabled?", já está no CRM":selected?", selecionada":". Clique para selecionar"}`}
+      aria-label={`${companyName}${selectionDisabled?", já está no CRM":selected?", em destaque":". Clique para destacar"}`}
       tabIndex={selectionDisabled?-1:0}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
@@ -1492,9 +1496,7 @@ function ResultCard({item,sourceLabel,selected,selectionDisabled,onSelectedChang
         <div className="companyMark"><BuildingIcon/></div>
         <div className="resultTitle">
           <h3 title={companyName}>{companyName}</h3>
-          <span title={`${item.category||item.cnae||""} · ${item.city||""}/${item.state||""}`}>
-            {item.category || item.cnae} · {item.city}/{item.state}
-          </span>
+          <span title={companySubtitle}>{companySubtitle}</span>
         </div>
         <span className={`potentialTag ${item.potential.level.toLowerCase()}`}>{potentialLabel(item.potential.level)}</span>
       </div>

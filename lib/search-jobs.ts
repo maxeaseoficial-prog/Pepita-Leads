@@ -68,7 +68,7 @@ export async function searchOwnerForRequest(request:Request) {
 export async function createSearchJob(ownerKey:string,query:string,payload:SearchPayload) {
   const normalized=normalizeSearchPayload(payload);
   if(!normalized.niche) throw new Error("Informe o nicho.");
-  if(!normalized.city) throw new Error("Informe a cidade.");
+  if(!normalized.city&&!normalized.exactCompany) throw new Error("Informe a cidade.");
 
   const sql=getSql();
   const rows=await sql.query(`

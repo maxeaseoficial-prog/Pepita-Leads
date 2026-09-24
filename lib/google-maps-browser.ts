@@ -201,7 +201,7 @@ function cacheKey(input:SearchPayload) {
 
 function validate(input:SearchPayload) {
   if(!clean(input.niche)) throw new Error("Informe o nicho.");
-  if(!clean(input.city)) throw new Error("Informe a cidade.");
+  if(!clean(input.city)&&!input.exactCompany) throw new Error("Informe a cidade.");
   if(input.state&&!/^[A-Z]{2}$/.test(input.state)) throw new Error("Informe uma UF válida.");
   if(!Number.isInteger(input.quantity)||input.quantity<1) throw new Error("Informe uma quantidade válida.");
 }
@@ -210,6 +210,12 @@ function stateFromAddress(address:string|null,fallback:string) {
   if(!address) return fallback;
   const matches=address.toUpperCase().match(/\b(?:AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/g);
   return matches?.at(-1)||fallback;
+}
+
+function cityFromAddress(address:string|null,fallback:string) {
+  if(!address) return fallback;
+  const matches=[...address.matchAll(/,\s*([^,]+?)\s*-\s*(?:AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)(?=,|$)/gi)];
+  return clean(matches.at(-1)?.[1])||fallback;
 }
 
 function executablePath() {
@@ -313,6 +319,59 @@ async function readPlace(page:Page,url:string):Promise<ScrapedPlace|null> {
   };
 }
 
+function decodedBingUrl(value:string) {
+  try {
+    const parsed=new URL(value,"https://www.bing.com");
+    const encoded=parsed.searchParams.get("u");
+    if(!encoded?.startsWith("a1")) return parsed.hostname.endsWith("bing.com")?null:parsed.href;
+    const decoded=Buffer.from(encoded.slice(2),"base64").toString("utf8");
+    return /^https?:\/\//i.test(decoded)?decoded:null;
+  } catch {
+    return null;
+  }
+}
+
+async function specificCompanyFromWebSearch(page:Page,input:SearchPayload):Promise<ScrapedPlace|null> {
+  const query=[`"${input.niche}"`,input.city,input.state,"Brasil empresa contato"].filter(Boolean).join(" ");
+  await navigate(page,`https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=pt-br&cc=br`,15_000);
+
+  const rawCandidates=await page.$$eval("li.b_algo",items=>items.slice(0,10).map(item=>{
+    const link=item.querySelector<HTMLAnchorElement>("h2 a");
+    return {
+      href:link?.href||"",
+      title:(link?.textContent||"").trim(),
+      text:(item.textContent||"").replace(/\s+/g," ").trim()
+    };
+  })).catch(()=>[] as {href:string;title:string;text:string}[]);
+
+  const blockedHosts=/wikipedia|steampowered|steamcommunity|playcaliber|calibre-ebook|caliberstrong|youtube|facebook|linkedin|instagram/i;
+  let best:{url:string;title:string;score:number}|null=null;
+  for(const candidate of rawCandidates) {
+    const url=decodedBingUrl(candidate.href);
+    if(!url) continue;
+    const host=new URL(url).hostname;
+    if(blockedHosts.test(host)) continue;
+
+    const content=`${candidate.title} ${candidate.text}`;
+    const tokenScore=nameMatchScore(input.niche,content);
+    const hostScore=nameMatchScore(input.niche,host.replace(/\./g," "));
+    const businessBonus=/empresa|consultoria|negocio|corporativ|gestao|servico|cnpj|brasil/i.test(content)?.3:0;
+    const brazilBonus=/\.com\.br$|\.br$/i.test(host)?.15:0;
+    const score=tokenScore+hostScore*.6+businessBonus+brazilBonus;
+    if(!best||score>best.score) best={url,title:candidate.title,score};
+  }
+
+  if(!best||best.score<.55) return null;
+  return {
+    name:clean(best.title)||input.niche,
+    category:"Empresa",
+    address:null,
+    phone:null,
+    website:best.url,
+    mapsUrl:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.niche)}`
+  };
+}
+
 function scorePlace(place:ScrapedPlace) {
   const score=45+(place.phone?15:0)+(place.website?15:0)+(place.address?10:0);
   return {
@@ -357,7 +416,7 @@ async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:S
     companySize:"Não informado",
     capitalSocialCents:null,
     matrixBranch:"Não informado",
-    city:input.city,
+    city:cityFromAddress(place.address,input.city),
     state:stateFromAddress(place.address,input.state),
     address:place.address,
     postalCode:null,
@@ -391,7 +450,9 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     const page=await context.newPage();
     page.setDefaultTimeout(15_000);
 
-    const query=[`${input.niche} em ${input.city}`,input.state].filter(Boolean).join(" ");
+    const query=input.exactCompany
+      ?[input.niche,input.city,input.state,"Brasil"].filter(Boolean).join(" ")
+      :[`${input.niche} em ${input.city}`,input.state].filter(Boolean).join(" ");
     const searchUrl=`https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=pt-BR&gl=br`;
     await navigate(page,searchUrl);
     await acceptConsent(page);
@@ -413,11 +474,16 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
       const signature=`${place.name}|${place.address||""}`.toLocaleLowerCase("pt-BR");
       if(seen.has(signature)) continue;
       seen.add(signature);
-      if(place.address&&!normalize(place.address).includes(normalize(input.city))) continue;
+      if(input.city&&place.address&&!normalize(place.address).includes(normalize(input.city))) continue;
       if(input.hasPhone&&!place.phone) continue;
       if(input.onlyWithoutSite&&place.website) continue;
       places.push(place);
       if(places.length>=requested) break;
+    }
+
+    if(!places.length&&input.exactCompany) {
+      const webPlace=await specificCompanyFromWebSearch(page,input).catch(()=>null);
+      if(webPlace) places.push(webPlace);
     }
 
     const results:CompanyLead[]=[];

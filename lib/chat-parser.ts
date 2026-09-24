@@ -130,6 +130,30 @@ function parseQuantity(text:string) {
   return m?Math.min(60,Math.max(1,Number(m[1]))):null;
 }
 
+function parseSpecificCompany(text:string) {
+  const patterns=[
+    /^(?:me\s+)?d[êe]\s+(?:os?\s+)?(?:dados|informa(?:ç|c)(?:ão|ao|oes|ões)|contato|telefone|site|instagram|cnpj)\s+(?:da|do|de)\s+(?:empresa\s+)?(.+)$/i,
+    /^(?:quero|preciso)\s+(?:dos?\s+)?(?:dados|informa(?:ç|c)(?:ão|ao|oes|ões)|contato|telefone|site|instagram|cnpj)\s+(?:da|do|de)\s+(?:empresa\s+)?(.+)$/i,
+    /^(?:buscar|busque|procure|pesquise|encontre|ache)\s+(?:a\s+)?empresa\s+(.+)$/i,
+    /^(?:qual|quais)\s+(?:é|e|são|sao)?\s*(?:o\s+)?(?:contato|telefone|site|instagram|cnpj)\s+(?:da|do|de)\s+(?:empresa\s+)?(.+)$/i
+  ];
+
+  for(const pattern of patterns) {
+    const match=text.trim().match(pattern);
+    if(!match) continue;
+
+    const location=inferLocation(text);
+    const name=cleanNicheCandidate(match[1])
+      .replace(/\s+(?:na\s+cidade\s+de|em)\s+.+$/i,"")
+      .trim();
+    const normalizedName=normalize(name);
+    if(!name||["empresa","uma empresa","primeira empresa"].includes(normalizedName)) return null;
+    return {name,...location};
+  }
+
+  return null;
+}
+
 function parseNiche(text:string,current?:SearchPayload|null) {
   const canonical=canonicalNiche(text);
   if(canonical) return canonical;
@@ -285,6 +309,22 @@ export function parseChatCommand(
   }
 
   if(/^(export|exporte|exportar)|planilha|csv|xlsx/.test(n)) return {type:"export"};
+  const specificCompany=parseSpecificCompany(text);
+  if(specificCompany) {
+    return {
+      type:"search",
+      payload:{
+        ...structuredClone(defaults),
+        niche:specificCompany.name,
+        city:specificCompany.city,
+        state:specificCompany.state,
+        quantity:1,
+        hasPhone:false,
+        hasEmail:false,
+        exactCompany:true
+      }
+    };
+  }
   if(/cnpj|socios|quadro societario/.test(n)&&!looksLikeSearch(n)) return {type:"company-data"};
   if(/por que.*potencial|explique.*potencial|analisar oportunidades|analise.*oportunidades/.test(n)) return {type:"analyze"};
   if(/fonte|de onde veio|evidencia/.test(n)) return {type:"source"};
