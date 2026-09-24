@@ -401,8 +401,8 @@ async function specificCompanyFromPublicTextSearch(input:SearchPayload):Promise<
     if(url) candidates.push({url,title:clean(match[1]),text:clean(match[3])});
   }
 
-  const blockedHosts=/wikipedia|steampowered|steamcommunity|playcaliber|calibre-ebook|caliberstrong|youtube|facebook|linkedin|instagram|cnpj\.biz|consultacnpj|acheiempresa|contactout/i;
-  let best:{url:string;title:string;score:number}|null=null;
+  const blockedHosts=/wikipedia|steampowered|steamcommunity|playcaliber|calibre-ebook|caliberstrong|youtube|linkedin|cnpj\.biz|consultacnpj|acheiempresa|contactout|focoradical/i;
+  let best:{url:string;title:string;text:string;score:number}|null=null;
   for(const candidate of candidates.slice(0,12)) {
     const host=new URL(candidate.url).hostname;
     if(blockedHosts.test(host)) continue;
@@ -411,16 +411,24 @@ async function specificCompanyFromPublicTextSearch(input:SearchPayload):Promise<
     const hostScore=nameMatchScore(input.niche,host.replace(/\./g," "));
     const businessBonus=/empresa|consultoria|negocio|corporativ|gestao|servico/i.test(content)?.3:0;
     const brazilBonus=/\.com\.br$|\.br$/i.test(host)?.15:0;
-    const score=tokenScore+hostScore*.6+businessBonus+brazilBonus;
-    if(!best||score>best.score) best={url:candidate.url,title:candidate.title,score};
+    const normalizedContent=normalize(content);
+    const cityScore=input.city?nameMatchScore(input.city,content):0;
+    const cityBonus=input.city&&normalizedContent.includes(normalize(input.city))?.4:cityScore*.5;
+    const mentionedStates:string[]=content.toUpperCase().match(/\b(?:AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)\b/g)||[];
+    const statePenalty=input.state&&mentionedStates.length&&!mentionedStates.includes(input.state)?.8:0;
+    const score=tokenScore+hostScore*.6+businessBonus+brazilBonus+cityBonus-statePenalty;
+    if(!best||score>best.score) best={url:candidate.url,title:candidate.title,text:candidate.text,score};
   }
 
   if(!best||best.score<.7) return null;
   return {
-    name:best.title.replace(/\s+[—|]\s+.*$/,"" ).trim()||input.niche,
+    name:best.title
+      .replace(/\s*(?:\([^)]*\)\s*)?(?:[•|—–-]\s*)?(?:Instagram.*|Facebook.*)$/i,"")
+      .replace(/\s+[—|]\s+.*$/,"" )
+      .trim()||input.niche,
     category:"Empresa",
     address:null,
-    phone:null,
+    phone:formatPhone(best.text.match(/(?:\+?55\s*)?\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}/)?.[0]||"")||null,
     website:best.url,
     mapsUrl:`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(input.niche)}`
   };
@@ -510,16 +518,20 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     const searchUrl=`https://www.google.com/maps/search/${encodeURIComponent(query)}?hl=pt-BR&gl=br`;
     await navigate(page,searchUrl);
     await acceptConsent(page);
-    await Promise.race([
-      page.waitForSelector('[role="feed"]',{timeout:15_000}),
-      page.waitForSelector("h1",{timeout:15_000})
-    ]).catch(()=>undefined);
-
-    if(/captcha|sorry\/index/i.test(page.url())) {
+    const mapsBlocked=/captcha|sorry\/index/i.test(page.url());
+    if(mapsBlocked&&!input.exactCompany) {
       throw new Error("O Google solicitou uma verificação nesta tentativa. Aguarde alguns minutos e tente novamente.");
     }
+    if(!mapsBlocked) {
+      await Promise.race([
+        page.waitForSelector('[role="feed"]',{timeout:15_000}),
+        page.waitForSelector("h1",{timeout:15_000})
+      ]).catch(()=>undefined);
+    }
 
-    const urls=await collectPlaceUrls(page,Math.min(MAX_CANDIDATES,Math.max(requested*2,requested)));
+    const urls=mapsBlocked
+      ?[]
+      :await collectPlaceUrls(page,Math.min(MAX_CANDIDATES,Math.max(requested*2,requested)));
     const places:ScrapedPlace[]=[];
     const seen=new Set<string>();
     for(const url of urls) {
@@ -528,6 +540,7 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
       const signature=`${place.name}|${place.address||""}`.toLocaleLowerCase("pt-BR");
       if(seen.has(signature)) continue;
       seen.add(signature);
+      if(input.exactCompany&&nameMatchScore(input.niche,place.name)<.6) continue;
       if(input.city&&place.address&&!normalize(place.address).includes(normalize(input.city))) continue;
       if(input.hasPhone&&!place.phone) continue;
       if(input.onlyWithoutSite&&place.website) continue;
@@ -536,9 +549,8 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     }
 
     if(!places.length&&input.exactCompany) {
-      let webPlace=await specificCompanyFromWebSearch(page,input).catch(()=>null);
-      if(!webPlace) webPlace=await specificCompanyFromPublicTextSearch(input).catch(()=>null);
-      console.info("EXACT_COMPANY_LOOKUP",{query:input.niche,found:Boolean(webPlace),source:webPlace?.website||null});
+      const webPlace=await specificCompanyFromPublicTextSearch(input).catch(()=>null);
+      console.info("EXACT_COMPANY_LOOKUP",{query:input.niche,mapsBlocked,found:Boolean(webPlace),source:webPlace?.website||null});
       if(webPlace) places.push(webPlace);
     }
 

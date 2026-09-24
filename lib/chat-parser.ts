@@ -143,9 +143,23 @@ function parseSpecificCompany(text:string) {
     if(!match) continue;
 
     const location=inferLocation(text);
-    const name=cleanNicheCandidate(match[1])
+    let name=cleanNicheCandidate(match[1])
       .replace(/\s+(?:na\s+cidade\s+de|em)\s+.+$/i,"")
       .trim();
+    if(!location.city) {
+      const normalizedName=normalize(name);
+      const knownCities=[...CITY_UF.entries()].sort((a,b)=>b[0].length-a[0].length);
+      for(const [knownCity,knownState] of knownCities) {
+        const normalizedCity=normalize(knownCity);
+        const suffix=` de ${normalizedCity}`;
+        if(!normalizedName.endsWith(suffix)) continue;
+        const city=name.slice(name.length-normalizedCity.length).trim();
+        name=name.slice(0,name.length-suffix.length).trim();
+        location.city=city;
+        location.state=knownState;
+        break;
+      }
+    }
     const normalizedName=normalize(name);
     if(!name||["empresa","uma empresa","primeira empresa"].includes(normalizedName)) return null;
     return {name,...location};
