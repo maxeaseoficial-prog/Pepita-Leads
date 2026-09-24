@@ -215,6 +215,10 @@ function potentialLabel(level:string) {
   return ({HIGH:"Alto",MEDIUM:"Médio",LOW:"Baixo"} as Record<string,string>)[level] || level;
 }
 
+function resultKey(item:CompanyLead) {
+  return item.cnpj||item.mapsUrl||[item.legalName,item.city,item.state,item.phone].filter(Boolean).join("|");
+}
+
 async function fetchJson<T>(url:string, init?:RequestInit):Promise<T> {
   const response=await fetch(url,init);
   const body=await response.json().catch(()=>null);
@@ -253,6 +257,9 @@ export function PepitaApp() {
   const [crmRefreshKey,setCrmRefreshKey]=useState(0);
   const [crmImporting,setCrmImporting]=useState(false);
   const [crmImportMessage,setCrmImportMessage]=useState("");
+  const [selectedResultKeys,setSelectedResultKeys]=useState<string[]>([]);
+  const [crmLeadStates,setCrmLeadStates]=useState<Record<string,"adding"|"added">>({});
+  const [crmLeadErrors,setCrmLeadErrors]=useState<Record<string,string>>({});
   const [authUser,setAuthUser]=useState<User|null>(null);
   const [accessToken,setAccessToken]=useState<string|null>(null);
   const [authReady,setAuthReady]=useState(!isSupabaseAuthConfigured());
@@ -787,6 +794,9 @@ export function PepitaApp() {
       notifySearchFinished(job);
       setCurrentSearch(job.payload);
       setResults(job.result.results);
+      setSelectedResultKeys(job.result.results.map(resultKey));
+      setCrmLeadStates({});
+      setCrmLeadErrors({});
       setDataset(job.result.dataset);
 
       const alreadySaved=historyAlreadyHas(job.id);
@@ -987,12 +997,15 @@ export function PepitaApp() {
   function restoreHistory(item:HistoryItem) {
     setCurrentSearch(item.payload);
     setResults(item.result.results);
+    setSelectedResultKeys(item.result.results.map(resultKey));
+    setCrmLeadStates({});
+    setCrmLeadErrors({});
     setDataset(item.result.dataset);
     navigate("results");
   }
 
-  async function addResultsToCrm() {
-    if(!results.length||crmImporting) return;
+  async function addResultsToCrm(leads:CompanyLead[]) {
+    if(!leads.length||crmImporting) return;
     setCrmImporting(true);setCrmImportMessage("");
     try {
       await fetchJson("/api/crm",{
@@ -1000,13 +1013,35 @@ export function PepitaApp() {
           "Content-Type":"application/json",
           ...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})
         },
-        body:JSON.stringify({action:"import-leads",leads:results})
+        body:JSON.stringify({action:"import-leads",leads})
       });
       setCrmRefreshKey(value=>value+1);
       navigate("crm");
     } catch(error) {
       setCrmImportMessage(error instanceof Error?error.message:"Não foi possível adicionar os leads ao CRM.");
     } finally { setCrmImporting(false); }
+  }
+
+  async function addResultToCrm(item:CompanyLead) {
+    const key=resultKey(item);
+    if(crmLeadStates[key]) return;
+    setCrmLeadStates(current=>({...current,[key]:"adding"}));
+    setCrmLeadErrors(current=>({...current,[key]:""}));
+    try {
+      await fetchJson("/api/crm",{
+        method:"POST",headers:{
+          "Content-Type":"application/json",
+          ...(accessToken?{Authorization:`Bearer ${accessToken}`}:{})
+        },
+        body:JSON.stringify({action:"import-leads",leads:[item]})
+      });
+      setCrmLeadStates(current=>({...current,[key]:"added"}));
+      setSelectedResultKeys(current=>current.filter(itemKey=>itemKey!==key));
+      setCrmRefreshKey(value=>value+1);
+    } catch(error) {
+      setCrmLeadStates(current=>{const next={...current};delete next[key];return next;});
+      setCrmLeadErrors(current=>({...current,[key]:error instanceof Error?error.message:"Não foi possível adicionar esta empresa ao CRM."}));
+    }
   }
 
   const providerSite=Boolean(health?.providers.mapsBrowser||health?.providers.googlePlaces);
@@ -1174,14 +1209,19 @@ export function PepitaApp() {
             history={history}
             onDetail={openDetail}
             onNewSearch={()=>{navigate("chat");setStructuredOpen(true);}}
-            onAddToCrm={()=>void addResultsToCrm()}
             onRestoreHistory={restoreHistory}
             onClearHistory={()=>{
               setHistory([]);
               localStorage.removeItem(personalKey("history"));
             }}
+            selectedKeys={selectedResultKeys}
+            onSelectionChange={setSelectedResultKeys}
+            onAddToCrm={leads=>void addResultsToCrm(leads)}
+            onAddOneToCrm={item=>void addResultToCrm(item)}
             crmImporting={crmImporting}
             crmImportMessage={crmImportMessage}
+            crmLeadStates={crmLeadStates}
+            crmLeadErrors={crmLeadErrors}
           />
         )}
 
@@ -1261,18 +1301,23 @@ function WorkingCard() {
 }
 
 function ResultsView({
-  results,dataset,history,onDetail,onNewSearch,onAddToCrm,onRestoreHistory,onClearHistory,crmImporting,crmImportMessage
+  results,dataset,history,onDetail,onNewSearch,selectedKeys,onSelectionChange,onAddToCrm,onAddOneToCrm,onRestoreHistory,onClearHistory,crmImporting,crmImportMessage,crmLeadStates,crmLeadErrors
 }:{
   results:CompanyLead[];
   dataset:SearchResponse["dataset"]|null;
   history:HistoryItem[];
   onDetail:(cnpj:string)=>void;
   onNewSearch:()=>void;
-  onAddToCrm:()=>void;
+  selectedKeys:string[];
+  onSelectionChange:(keys:string[])=>void;
+  onAddToCrm:(leads:CompanyLead[])=>void;
+  onAddOneToCrm:(item:CompanyLead)=>void;
   onRestoreHistory:(item:HistoryItem)=>void;
   onClearHistory:()=>void;
   crmImporting:boolean;
   crmImportMessage:string;
+  crmLeadStates:Record<string,"adding"|"added">;
+  crmLeadErrors:Record<string,string>;
 }) {
   const [tab,setTab]=useState<"current"|"history">("current");
   const [historyQuery,setHistoryQuery]=useState("");
@@ -1299,6 +1344,9 @@ function ResultsView({
     setTab("current");
   }
 
+  const availableResults=results.filter(item=>crmLeadStates[resultKey(item)]!=="added");
+  const selectedResults=availableResults.filter(item=>selectedKeys.includes(resultKey(item)));
+  const allSelected=availableResults.length>0&&selectedResults.length===availableResults.length;
   return (
     <div className="viewScroll">
       <div className="sectionHeader">
@@ -1319,13 +1367,34 @@ function ResultsView({
         <>
           {dataset && <div className="dataSource"><span>Fonte principal</span><strong>{dataset.mode==="RFB_OPEN_DATA"?"Dados Abertos CNPJ / base Pepita":dataset.mode.startsWith("OPENSTREETMAP")?"© OpenStreetMap contributors + dados cadastrais públicos":dataset.mode==="GOOGLE_MAPS_BROWSER"?"Google Maps — consulta ao vivo":dataset.mode}</strong></div>}
 
-          {!!results.length&&<div className="crmInvite"><div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div><div><strong>Deseja colocar esses leads no CRM?</strong><p>Acompanhe contatos, reuniões, negociações e o fechamento sem perder o histórico.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div><button className="primaryButton" disabled={crmImporting} onClick={onAddToCrm}>{crmImporting?"Adicionando…":`Adicionar ${results.length} ao CRM`} <ArrowRightIcon/></button></div>}
+          {!!results.length&&<div className="crmInvite">
+            <div className="crmInvitePepita"><img src="/pepita/success.png" alt=""/></div>
+            <div className="crmInviteCopy"><strong>Escolha os leads para o CRM</strong><p>Seleção: {selectedResults.length} de {availableResults.length}. Você também pode adicionar uma empresa diretamente pelo card.</p>{crmImportMessage&&<span role="alert">{crmImportMessage}</span>}</div>
+            <div className="crmInviteActions">
+              <button className="selectionButton" disabled={!availableResults.length} onClick={()=>onSelectionChange(allSelected?[]:availableResults.map(resultKey))}>{!availableResults.length?"Todos adicionados":allSelected?"Limpar seleção":"Selecionar todos"}</button>
+              <button className="primaryButton" disabled={crmImporting||!selectedResults.length} onClick={()=>onAddToCrm(selectedResults)}>{crmImporting?"Adicionando…":`Adicionar ${selectedResults.length} ao CRM`} <ArrowRightIcon/></button>
+            </div>
+          </div>}
 
           {!results.length ? (
             <div className="emptyState"><img src="/pepita/empty.png" alt=""/><h3>Nenhum resultado ainda</h3><p>Faça uma busca pelo chat ou consulte o histórico de buscas.</p><button className="primaryButton" onClick={onNewSearch}>Iniciar busca</button></div>
           ) : (
             <div className="resultsGrid">
-              {results.map(item=><ResultCard key={item.cnpj||item.mapsUrl||item.legalName} item={item} sourceLabel={dataset?.mode.startsWith("OPENSTREETMAP")?"OpenStreetMap":"Google Maps"} onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}/>)}
+              {results.map(item=>{
+                const key=resultKey(item);
+                return <ResultCard
+                  key={key}
+                  item={item}
+                  sourceLabel={dataset?.mode.startsWith("OPENSTREETMAP")?"OpenStreetMap":"Google Maps"}
+                  selected={selectedKeys.includes(key)}
+                  selectionDisabled={crmLeadStates[key]==="added"}
+                  onSelectedChange={selected=>onSelectionChange(selected?[...new Set([...selectedKeys,key])]:selectedKeys.filter(itemKey=>itemKey!==key))}
+                  onAddToCrm={()=>onAddOneToCrm(item)}
+                  crmState={crmLeadStates[key]}
+                  crmError={crmLeadErrors[key]}
+                  onDetail={item.cnpj?()=>onDetail(item.cnpj):undefined}
+                />;
+              })}
             </div>
           )}
         </>
@@ -1374,7 +1443,7 @@ function ResultsView({
   );
 }
 
-function ResultCard({item,sourceLabel,onDetail}:{item:CompanyLead;sourceLabel:string;onDetail?:()=>void}) {
+function ResultCard({item,sourceLabel,selected,selectionDisabled,onSelectedChange,onAddToCrm,crmState,crmError,onDetail}:{item:CompanyLead;sourceLabel:string;selected:boolean;selectionDisabled:boolean;onSelectedChange:(selected:boolean)=>void;onAddToCrm:()=>void;crmState?:"adding"|"added";crmError?:string;onDetail?:()=>void}) {
   const phoneDigits=(item.phone||"").replace(/\D/g,"");
   const registeredPhoneDigits=(item.registeredPhone||"").replace(/\D/g,"");
   const registeredPhone2Digits=(item.registeredPhone2||"").replace(/\D/g,"");
@@ -1399,10 +1468,10 @@ function ResultCard({item,sourceLabel,onDetail}:{item:CompanyLead;sourceLabel:st
   };
   const waHref=(digits:string)=>digits?`https://wa.me/${internationalDigits(digits)}`:"";
   const telHref=(digits:string)=>digits?`tel:+${internationalDigits(digits)}`:"";
-
   return (
-    <article className="resultCard">
+    <article className={`resultCard ${selected?"selected":""}`} aria-label={`${companyName}${selected?", selecionada":""}`}>
       <div className="resultTop">
+        <label className="resultSelector"><input type="checkbox" aria-label={selectionDisabled?`${companyName} já está no CRM`:`Selecionar ${companyName}`} checked={selected} disabled={selectionDisabled} onChange={event=>onSelectedChange(event.target.checked)}/><span>{selectionDisabled?"No CRM":"Selecionar"}</span></label>
         <div className="companyMark"><BuildingIcon/></div>
         <div className="resultTitle">
           <h3 title={companyName}>{companyName}</h3>
@@ -1446,7 +1515,9 @@ function ResultCard({item,sourceLabel,onDetail}:{item:CompanyLead;sourceLabel:st
         {websiteUrl&&<a href={websiteUrl} target="_blank" rel="noreferrer"><GlobeIcon/>Site</a>}
         {instagramUrl&&<a href={instagramUrl} target="_blank" rel="noreferrer"><InstagramIcon/>Instagram</a>}
         {onDetail&&<button className="primarySmall" onClick={onDetail}>Ver detalhes <ArrowRightIcon/></button>}
+        <button className={`crmCardAdd ${crmState==="added"?"added":""}`} disabled={Boolean(crmState)} onClick={onAddToCrm}><KanbanIcon/>{crmState==="adding"?"Adicionando…":crmState==="added"?"Adicionado ao CRM":"Adicionar ao CRM"}</button>
       </div>
+      {crmError&&<p className="resultCrmError" role="alert">{crmError}</p>}
     </article>
   );
 }

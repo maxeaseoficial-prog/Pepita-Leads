@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadCrmBoard } from "@/lib/crm";
+import { ensureCrmWorkspace, loadCrmBoard } from "@/lib/crm";
 import { getSql } from "@/lib/db";
 import { workspaceForRequest } from "@/lib/supabase/server-auth";
 import type { CompanyLead } from "@/lib/types";
@@ -68,6 +68,7 @@ export async function POST(request:Request) {
     } else if(action==="import-leads") {
       const leads=Array.isArray(body.leads)?body.leads.slice(0,100) as CompanyLead[]:[];
       if(!leads.length) return error("Não há leads para adicionar.");
+      await ensureCrmWorkspace(workspace);
       const payload=leads.map(lead=>({
         cnpj:text(lead.cnpj,20)||null,
         companyName:text(lead.legalName,180)||text(lead.tradeName,180)||"Empresa",

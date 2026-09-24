@@ -193,11 +193,20 @@ svg{width:20px;height:20px}
 .crmInvite strong{display:block;font-size:14px;margin-bottom:3px}
 .crmInvite p{margin:0;color:#b9b49e;font-size:12px;line-height:1.45}
 .crmInvite span{display:block;color:#ff9b9b;font-size:11px;margin-top:5px}
+.crmInviteActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.selectionButton{border:1px solid #4a4e53;background:#111315;color:#d8dade;border-radius:10px;padding:10px 12px;font-weight:700;white-space:nowrap}
+.selectionButton:hover{border-color:#75620e;color:#fff}
+.selectionButton:disabled{opacity:.52;cursor:default}
 .crmInvite .primaryButton{display:flex;align-items:center;gap:7px;white-space:nowrap}
 .crmInvite .primaryButton svg{width:16px;height:16px}
 .resultsGrid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.resultCard{border:1px solid #34383d;background:linear-gradient(180deg,#15181b,#101215);border-radius:15px;padding:14px;display:grid;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.12)}
+.resultCard{border:1px solid #34383d;background:linear-gradient(180deg,#15181b,#101215);border-radius:15px;padding:14px;display:grid;gap:11px;box-shadow:0 12px 30px rgba(0,0,0,.12);transition:border-color .18s ease,background-color .18s ease,box-shadow .18s ease}
+.resultCard.selected{border-color:#7a650a;background:linear-gradient(180deg,#1a190f,#11130f);box-shadow:0 14px 34px rgba(0,0,0,.18),0 0 0 1px rgba(246,197,21,.08)}
 .resultTop{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden}
+.resultSelector{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;color:#c5c8cd;font-size:10px;font-weight:750;cursor:pointer}
+.resultSelector input{width:17px;height:17px;margin:0;accent-color:var(--gold);cursor:pointer}
+.resultSelector:has(input:disabled){color:#85c592;cursor:default}.resultSelector input:disabled{cursor:default}
+.resultSelector:has(input:focus-visible){outline:2px solid var(--gold);outline-offset:3px;border-radius:4px}
 .companyMark{width:46px;height:46px;flex:0 0 auto;border:1px solid #55470b;border-radius:11px;background:#211d08;color:var(--gold);display:grid;place-items:center}
 .companyMark.large{width:64px;height:64px}
 .companyMark.large svg{width:28px;height:28px}
@@ -217,7 +226,11 @@ svg{width:20px;height:20px}
 .cardActions{display:flex;gap:7px;flex-wrap:wrap}
 .cardActions a,.cardActions button{border:1px solid #3a3e44;background:#191c20;color:#e9eaec;text-decoration:none;border-radius:9px;padding:8px 9px;display:inline-flex;align-items:center;gap:6px;font-size:12px}
 .cardActions svg{width:15px;height:15px}
-.cardActions .primarySmall{margin-left:auto;background:var(--gold);color:#111;border-color:var(--gold);font-weight:800}
+.cardActions .primarySmall{background:#202328;color:#f2f3f4;border-color:#454a51;font-weight:750}
+.cardActions .crmCardAdd{margin-left:auto;background:var(--gold);color:#111;border-color:var(--gold);font-weight:850}
+.cardActions .crmCardAdd:disabled{cursor:default;opacity:.72}
+.cardActions .crmCardAdd.added{background:#112619;color:#91e3a2;border-color:#2f6c3d}
+.resultCrmError{margin:0;color:#ffaaaa;font-size:11px;line-height:1.4}
 .emptyState{max-width:650px;margin:70px auto;text-align:center;border:1px solid #31363b;border-radius:18px;background:#121417;padding:30px}
 .emptyState img{width:110px;height:110px;object-fit:cover;border-radius:16px}
 .emptyState h3{margin:14px 0 5px}
@@ -585,7 +598,10 @@ svg{width:20px;height:20px}
   @keyframes drawerUp{from{transform:translateY(35px);opacity:.65}}
   .crmInvite{grid-template-columns:42px minmax(0,1fr);margin:0 auto 12px}
   .crmInvitePepita{width:42px;height:42px}
-  .crmInvite .primaryButton{grid-column:1/-1;justify-content:center}
+  .crmInviteActions{grid-column:1/-1;display:grid;grid-template-columns:1fr;width:100%}
+  .crmInvite .primaryButton{justify-content:center;width:100%}
+  .selectionButton{width:100%}
+  .resultSelector span{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 }
 @media(max-width:420px){
   .brandTitle{font-size:16px;gap:5px}
