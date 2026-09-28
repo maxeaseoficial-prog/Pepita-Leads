@@ -8,6 +8,7 @@ import type {
   CompanyLead,
   HealthResponse,
   SearchPayload,
+  SearchProgress,
   SearchResponse
 } from "@/lib/types";
 import { parseChatCommand } from "@/lib/chat-parser";
@@ -62,6 +63,7 @@ type SearchJobDto={
   payload:SearchPayload;
   status:"pending"|"running"|"completed"|"failed";
   result:SearchResponse|null;
+  progress:SearchProgress;
   error:string|null;
   createdAt:string;
   startedAt:string|null;
@@ -246,6 +248,7 @@ export function PepitaApp() {
   const [planConfigs,setPlanConfigs]=useState<PlanConfig[]>(DEFAULT_PLAN_CONFIGS);
   const [effectivePlan,setEffectivePlan]=useState<PlanId|null>(null);
   const [working,setWorking]=useState(false);
+  const [searchJob,setSearchJob]=useState<SearchJobDto|null>(null);
   const [structuredOpen,setStructuredOpen]=useState(false);
   const [structured,setStructured]=useState<SearchPayload>(()=>defaultSearch());
   const [detail,setDetail]=useState<CompanyDetail|null>(null);
@@ -792,6 +795,7 @@ export function PepitaApp() {
     if(handledSearchJobsRef.current.has(job.id)) return;
     handledSearchJobsRef.current.add(job.id);
     activeSearchJobRef.current=null;
+    setSearchJob(job);
 
     if(job.status==="completed"&&job.result) {
       notifySearchFinished(job);
@@ -828,6 +832,7 @@ export function PepitaApp() {
     activeSearchJobRef.current=jobId;
     setWorking(true);
     let job=initial||null;
+    if(job) setSearchJob(job);
 
     while(searchPollGenerationRef.current===generation) {
       if(job&&(job.status==="completed"||job.status==="failed")) {
@@ -842,6 +847,7 @@ export function PepitaApp() {
         const data=await searchJobRequest(`/api/search/jobs/${jobId}`);
         job=data.job||null;
         if(job) {
+          setSearchJob(job);
           setCurrentSearch(job.payload);
           if(job.status==="pending"||job.status==="running") setWorking(true);
         }
@@ -863,6 +869,7 @@ export function PepitaApp() {
       }
 
       setCurrentSearch(job.payload);
+      setSearchJob(job);
       if(job.status==="completed"||job.status==="failed") {
         await finishSearchJob(job,generation);
         return;
@@ -876,6 +883,7 @@ export function PepitaApp() {
     const enforcedPayload=enforceRequiredLeadFilters(payload);
     prepareSearchNotifications();
     setWorking(true);
+    setSearchJob(null);
     setCurrentSearch(enforcedPayload);
 
     try {
@@ -888,9 +896,11 @@ export function PepitaApp() {
 
       const generation=++searchPollGenerationRef.current;
       activeSearchJobRef.current=job.id;
+      setSearchJob(job);
       void pollSearchJob(job.id,generation,job);
     } catch(error) {
       setWorking(false);
+      setSearchJob(null);
       addMessage(
         "assistant",
         error instanceof Error?error.message:"Não consegui iniciar a busca.",
@@ -1163,7 +1173,7 @@ export function PepitaApp() {
                     </div>
                   </div>
                 ))}
-                {working && <WorkingCard/>}
+                {working && <WorkingCard job={searchJob} fallbackTotal={currentSearch?.quantity||0}/>}
               </div>
             </div>
 
@@ -1290,14 +1300,83 @@ function QuickCard({icon,title,text}:{icon:ReactNode;title:string;text:string}) 
   return <div className="quickCard"><div className="quickIcon">{icon}</div><div><strong>{title}</strong><small>{text}</small></div></div>;
 }
 
-function WorkingCard() {
+function formatClock(seconds:number) {
+  const safe=Math.max(0,Math.floor(seconds));
+  return `${String(Math.floor(safe/60)).padStart(2,"0")}:${String(safe%60).padStart(2,"0")}`;
+}
+
+function formatEstimate(seconds:number) {
+  const rounded=seconds<60
+    ?Math.max(5,Math.ceil(seconds/5)*5)
+    :Math.ceil(seconds/15)*15;
+  if(rounded<60) return `${rounded}s`;
+  const minutes=Math.floor(rounded/60);
+  const remaining=rounded%60;
+  return remaining?`${minutes}m${remaining}s`:`${minutes}m`;
+}
+
+function WorkingCard({job,fallbackTotal}:{job:SearchJobDto|null;fallbackTotal:number}) {
+  const [now,setNow]=useState(()=>Date.now());
+  useEffect(()=>{
+    const timer=window.setInterval(()=>setNow(Date.now()),1000);
+    return ()=>window.clearInterval(timer);
+  },[]);
+
+  const progress=job?.progress||{
+    stage:"preparing" as const,
+    current:0,
+    total:Math.max(1,fallbackTotal||10),
+    percent:2,
+    message:"Preparando a busca...",
+    updatedAt:new Date(now).toISOString()
+  };
+  const startedAt=Date.parse(job?.startedAt||job?.createdAt||"");
+  const elapsedSeconds=Number.isFinite(startedAt)
+    ?Math.max(0,(now-startedAt)/1000)
+    :0;
+  const percent=Math.max(0,Math.min(99,progress.percent));
+  const estimatedSeconds=percent>0?elapsedSeconds*(100-percent)/percent:0;
+  const progressUpdatedAt=Date.parse(progress.updatedAt);
+  const progressIsStale=Number.isFinite(progressUpdatedAt)&&now-progressUpdatedAt>25_000;
+  let eta="Calculando estimativa...";
+  if(elapsedSeconds>=8&&progressIsStale) {
+    eta="Estimando tempo restante...";
+  } else if(elapsedSeconds>=8&&percent>=8&&Number.isFinite(estimatedSeconds)&&estimatedSeconds>0) {
+    const lower=Math.max(5,estimatedSeconds*.75);
+    const upper=Math.max(lower+5,estimatedSeconds*1.35);
+    eta=`~${formatEstimate(lower)}–${formatEstimate(upper)} restantes`;
+  } else if(elapsedSeconds>=8) {
+    eta="Estimando tempo restante...";
+  }
+  const countLabel=progress.stage==="locating"
+    ?`${Math.min(progress.current,progress.total)} de ${progress.total} empresas localizadas`
+    :`${Math.min(progress.current,progress.total)} de ${progress.total} empresas processadas`;
+
   return (
     <div className="messageRow assistant">
       <img className="avatar" src="/pepita/working.png" alt=""/>
       <div className="bubble workingBubble">
-        <div className="workingHeader"><img src="/pepita/searching.png" alt=""/><div><strong>Pepita trabalhando</strong><span>Consultando empresas e organizando os dados.</span></div></div>
-        <div className="progressLine"><i/></div>
-        <div className="workingSteps"><span>Buscando empresas</span><span>Aplicando filtros</span><span>Organizando resultados</span></div>
+        <div className="workingHeader">
+          <img src="/pepita/searching.png" alt=""/>
+          <div>
+            <strong>Pepita está garimpando</strong>
+            <span>Aguarde enquanto preparamos seus resultados.</span>
+          </div>
+          <b>{Math.round(percent)}%</b>
+        </div>
+        <div
+          className="searchProgressTrack"
+          role="progressbar"
+          aria-label="Progresso da busca"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(percent)}
+          aria-valuetext={`${Math.round(percent)}%. ${countLabel}`}
+        >
+          <i className="searchProgressFill" style={{transform:`scaleX(${percent/100})`}}/>
+        </div>
+        <div className="searchProgressCount"><strong>{countLabel}</strong><span aria-live="polite">{progress.message}</span></div>
+        <div className="searchProgressMeta"><span>{formatClock(elapsedSeconds)} decorrido</span><span>{eta}</span></div>
       </div>
     </div>
   );

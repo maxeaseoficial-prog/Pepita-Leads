@@ -578,50 +578,71 @@ export async function enrichLeadFromRegistry(
   return mergeLead(lead,best.record);
 }
 
-export async function enrichLeadsFromRegistry(leads:CompanyLead[],input:SearchPayload) {
+export async function enrichLeadsFromRegistry(
+  leads:CompanyLead[],
+  input:SearchPayload,
+  onProcessed:(current:number,total:number)=>void=()=>undefined
+) {
   if(!leads.length) return leads;
 
   const output=[...leads];
   const openCnpjCandidates=await discoverOpenCnpjCandidates(leads).catch(()=>new Map<number,string[]>());
   const workers=Math.min(3,leads.length);
   let index=0;
+  let completed=0;
 
   await Promise.all(Array.from({length:workers},async()=>{
     while(true) {
       const current=index++;
       if(current>=leads.length) return;
-      output[current]=await enrichLeadFromRegistry(
-        leads[current],
-        input,
-        openCnpjCandidates.get(current)||[]
-      ).catch(()=>leads[current]);
+      try {
+        output[current]=await enrichLeadFromRegistry(
+          leads[current],
+          input,
+          openCnpjCandidates.get(current)||[]
+        ).catch(()=>leads[current]);
+      } finally {
+        completed+=1;
+        onProcessed(completed,leads.length);
+      }
     }
   }));
 
   return output;
 }
 
-export async function enrichLeadsFromKnownCnpj(leads:CompanyLead[],input:SearchPayload) {
+export async function enrichLeadsFromKnownCnpj(
+  leads:CompanyLead[],
+  input:SearchPayload,
+  onProcessed:(current:number,total:number)=>void=()=>undefined
+) {
   if(!leads.length) return leads;
 
   const output=[...leads];
   const workers=Math.min(3,leads.length);
   let index=0;
+  let completed=0;
 
   await Promise.all(Array.from({length:workers},async()=>{
     while(true) {
       const current=index++;
       if(current>=leads.length) return;
-      const lead=leads[current];
-      const candidate=lead.cnpjCandidate&&isValidCnpj(lead.cnpjCandidate)
-        ?lead.cnpjCandidate
-        :null;
-      if(!candidate&&!isValidCnpj(lead.cnpj)) continue;
-      output[current]=await enrichLeadFromRegistry(
-        lead,
-        input,
-        candidate?[candidate]:[]
-      ).catch(()=>lead);
+      try {
+        const lead=leads[current];
+        const candidate=lead.cnpjCandidate&&isValidCnpj(lead.cnpjCandidate)
+          ?lead.cnpjCandidate
+          :null;
+        if(candidate||isValidCnpj(lead.cnpj)) {
+          output[current]=await enrichLeadFromRegistry(
+            lead,
+            input,
+            candidate?[candidate]:[]
+          ).catch(()=>lead);
+        }
+      } finally {
+        completed+=1;
+        onProcessed(completed,leads.length);
+      }
     }
   }));
 

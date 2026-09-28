@@ -140,15 +140,19 @@ svg{width:20px;height:20px}
 .quantityButtons button:hover{background:#292408;border-color:#75620d;color:var(--gold)}
 .inlinePrimary{margin-top:12px;border:1px solid var(--gold);background:var(--gold);color:#0d0d0d;border-radius:9px;padding:9px 12px;font-weight:800;display:inline-flex;align-items:center;gap:8px}
 .inlinePrimary svg{width:16px;height:16px}
-.workingBubble{width:min(590px,85%);max-width:none}
-.workingHeader{display:flex;gap:12px;align-items:center}
+.workingBubble{width:min(590px,85%);max-width:none;border-color:#51440b;background:linear-gradient(180deg,#171814,#121416)}
+.workingHeader{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:12px;align-items:center}
 .workingHeader img{width:58px;height:58px;object-fit:cover;border-radius:11px}
-.workingHeader div{display:grid;gap:4px}
-.workingHeader span{color:var(--muted);font-size:12px}
-.progressLine{height:5px;background:#25292d;border-radius:99px;margin:12px 0;overflow:hidden}
-.progressLine i{display:block;width:55%;height:100%;background:linear-gradient(90deg,var(--gold-2),var(--gold));border-radius:99px;animation:pulsebar 1.2s ease-in-out infinite alternate}
-@keyframes pulsebar{to{width:85%}}
-.workingSteps{display:flex;justify-content:space-between;gap:12px;color:#898e96;font-size:11px}
+.workingHeader div{display:grid;gap:4px;min-width:0}
+.workingHeader strong{font-size:15px;letter-spacing:-.01em}
+.workingHeader span{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.workingHeader b{color:var(--gold);font-size:14px;font-variant-numeric:tabular-nums}
+.searchProgressTrack{height:7px;background:#282a25;border:1px solid #3b3a25;border-radius:99px;margin:14px 0 10px;overflow:hidden}
+.searchProgressFill{display:block;width:100%;height:100%;background:linear-gradient(90deg,var(--gold-2),var(--gold));border-radius:99px;transform-origin:left center;transition:transform .35s ease}
+.searchProgressCount{display:flex;align-items:baseline;justify-content:space-between;gap:16px;font-size:11px}
+.searchProgressCount strong{color:#deded9;font-weight:700}
+.searchProgressCount span{color:#898e96;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.searchProgressMeta{display:flex;justify-content:space-between;gap:16px;margin-top:9px;padding-top:9px;border-top:1px solid #292c2e;color:#8f949b;font-size:11px;font-variant-numeric:tabular-nums}
 .composer{
   position:absolute;left:50%;transform:translateX(-50%);bottom:18px;width:min(900px,calc(100% - 48px));
   display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:end;padding:11px;
@@ -603,7 +607,12 @@ svg{width:20px;height:20px}
   .signupButton{padding:0 9px}.loginButton{padding:0 10px}
   .navButton span{font-size:9px}
   .infoGrid{grid-template-columns:1fr}
-  .workingSteps{display:grid}
+  .workingBubble{width:calc(100% - 4px);padding:12px}
+  .workingHeader{grid-template-columns:46px minmax(0,1fr) auto;gap:9px}
+  .workingHeader img{width:46px;height:46px}
+  .searchProgressCount{display:grid;gap:3px}
+  .searchProgressCount span{text-align:left}
+  .searchProgressMeta{flex-wrap:wrap;gap:4px 12px}
   .messageRow.user .bubble,.bubble{max-width:92%}
   .voiceRecorder{grid-template-columns:minmax(80px,1fr) 42px 42px;gap:8px}
   .voiceMeta{display:none}
@@ -617,6 +626,7 @@ svg{width:20px;height:20px}
   .appShell,.sidebar,.sidebarReveal{transition:none;animation:none}
   .crmDrawer,.crmSaveState.saving:before,.skeletonColumns .crmColumn>header,.crmSkeletonCard{animation:none}
   .planCard,.planButton,.planButton:after,.accountUsage,.accountUsageTooltip{transition:none}
+  .searchProgressFill{transition:none}
   .planCard:hover,.planCard.popular:hover,.planButton:hover,.accountUsage:hover,.accountUsage:focus-visible{transform:none}
   .planButton:after{display:none}
 }

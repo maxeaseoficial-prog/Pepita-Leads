@@ -10,6 +10,8 @@ const CACHE_TTL_MS=15*60*1000;
 type CachedSearch={expiresAt:number;value:SearchResponse};
 const cache=new Map<string,CachedSearch>();
 type SearchSession={googleWebBlocked:boolean;alternateWebBlocked:boolean};
+type LocationProgress={current:number;total:number;fraction:number;message:string};
+type LocationProgressReporter=(progress:LocationProgress)=>void;
 
 type ScrapedPlace={
   name:string;
@@ -261,7 +263,12 @@ async function navigate(page:Page,url:string,timeout=30_000) {
   }
 }
 
-async function collectPlaceUrls(page:Page,limit:number) {
+async function collectPlaceUrls(
+  page:Page,
+  limit:number,
+  requested:number,
+  onProgress:LocationProgressReporter
+) {
   const urls=new Set<string>();
   const deadline=Date.now()+25_000;
 
@@ -274,6 +281,12 @@ async function collectPlaceUrls(page:Page,limit:number) {
       urls.add(url.split("&")[0]);
       if(urls.size>=limit) break;
     }
+    onProgress({
+      current:0,
+      total:requested,
+      fraction:.5*(Math.min(urls.size,limit)/Math.max(1,limit)),
+      message:"Buscando empresas no Google Maps..."
+    });
     if(urls.size>=limit) break;
 
     const moved=await page.evaluate(()=>{
@@ -288,6 +301,12 @@ async function collectPlaceUrls(page:Page,limit:number) {
   }
 
   if(!urls.size&&page.url().includes("/maps/place/")) urls.add(page.url().split("&")[0]);
+  onProgress({
+    current:0,
+    total:requested,
+    fraction:.5,
+    message:"Lendo dados públicos no Google Maps..."
+  });
   return [...urls].slice(0,limit);
 }
 
@@ -494,12 +513,18 @@ async function toLead(place:ScrapedPlace,input:SearchPayload,page:Page,session:S
   };
 }
 
-export async function searchGoogleMaps(input:SearchPayload):Promise<SearchResponse> {
+export async function searchGoogleMaps(
+  input:SearchPayload,
+  onProgress:LocationProgressReporter=()=>undefined
+):Promise<SearchResponse> {
   validate(input);
   const requested=Math.min(input.quantity,MAX_RESULTS);
   const key=cacheKey(input);
   const cached=cache.get(key);
-  if(cached&&cached.expiresAt>Date.now()) return structuredClone(cached.value);
+  if(cached&&cached.expiresAt>Date.now()) {
+    onProgress({current:cached.value.returned,total:requested,fraction:1,message:"Empresas localizadas no histórico recente."});
+    return structuredClone(cached.value);
+  }
 
   let browser:Browser|null=null;
   try {
@@ -531,20 +556,34 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
 
     const urls=mapsBlocked
       ?[]
-      :await collectPlaceUrls(page,Math.min(MAX_CANDIDATES,Math.max(requested*2,requested)));
+      :await collectPlaceUrls(
+          page,
+          Math.min(MAX_CANDIDATES,Math.max(requested*2,requested)),
+          requested,
+          onProgress
+        );
     const places:ScrapedPlace[]=[];
     const seen=new Set<string>();
-    for(const url of urls) {
+    for(let index=0;index<urls.length;index+=1) {
+      const url=urls[index];
       const place=await readPlace(page,url).catch(()=>null);
-      if(!place) continue;
-      const signature=`${place.name}|${place.address||""}`.toLocaleLowerCase("pt-BR");
-      if(seen.has(signature)) continue;
-      seen.add(signature);
-      if(input.exactCompany&&nameMatchScore(input.niche,place.name)<.6) continue;
-      if(input.city&&place.address&&!normalize(place.address).includes(normalize(input.city))) continue;
-      if(input.hasPhone&&!place.phone) continue;
-      if(input.onlyWithoutSite&&place.website) continue;
-      places.push(place);
+      if(place) {
+        const signature=`${place.name}|${place.address||""}`.toLocaleLowerCase("pt-BR");
+        if(!seen.has(signature)) {
+          seen.add(signature);
+          const matchingName=!input.exactCompany||nameMatchScore(input.niche,place.name)>=.6;
+          const matchingCity=!input.city||!place.address||normalize(place.address).includes(normalize(input.city));
+          const matchingPhone=!input.hasPhone||Boolean(place.phone);
+          const matchingSite=!input.onlyWithoutSite||!place.website;
+          if(matchingName&&matchingCity&&matchingPhone&&matchingSite) places.push(place);
+        }
+      }
+      onProgress({
+        current:Math.min(places.length,requested),
+        total:requested,
+        fraction:.5+.5*((index+1)/Math.max(1,urls.length)),
+        message:"Lendo dados públicos no Google Maps..."
+      });
       if(places.length>=requested) break;
     }
 
@@ -557,6 +596,12 @@ export async function searchGoogleMaps(input:SearchPayload):Promise<SearchRespon
     const results:CompanyLead[]=[];
     const session:SearchSession={googleWebBlocked:false,alternateWebBlocked:false};
     for(const place of places) results.push(await toLead(place,input,page,session));
+    onProgress({
+      current:results.length,
+      total:requested,
+      fraction:1,
+      message:"Empresas localizadas."
+    });
     const value:SearchResponse={
       input:{...input,quantity:requested},
       requested,

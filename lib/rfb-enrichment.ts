@@ -261,7 +261,8 @@ async function enrichMapResultsFromRfbApi(
 
 export async function enrichMapResultsFromRfb(
   results:CompanyLead[],
-  input:SearchPayload
+  input:SearchPayload,
+  onProcessed:(current:number,total:number)=>void=()=>undefined
 ):Promise<CompanyLead[]> {
   if(!results.length) return [];
 
@@ -269,26 +270,52 @@ export async function enrichMapResultsFromRfb(
   // Isso funciona inclusive enquanto a carga completa ainda está em andamento:
   // o resolvedor sob demanda busca apenas cidade + CNAE e grava o match no RFB.
   if(!hasDedicatedRfbDatabase()) {
-    return enrichMapResultsFromRfbApi(results,input);
+    const enriched=await enrichMapResultsFromRfbApi(results,input);
+    onProcessed(results.length,results.length);
+    return enriched;
   }
 
   const status=await getRfbDatasetStatus();
-  if(!status.ready) return results;
+  if(!status.ready) {
+    onProcessed(results.length,results.length);
+    return results;
+  }
 
   if(
     status.states.length
     &&!status.states.includes("BR")
     &&!status.states.includes(input.state)
   ) {
+    onProcessed(results.length,results.length);
     return results;
   }
 
   const matched=new Map<number,Row>();
   const usedCnpjs=new Set<string>();
+  const rankedByIndex:Array<RankedCandidate[]|undefined>=new Array(results.length);
+  const workers=Math.min(3,results.length);
+  let nextIndex=0;
+  let completed=0;
+
+  // As consultas são independentes; só a escolha final continua sequencial para
+  // preservar a deduplicação e exatamente a mesma ordem de aceitação anterior.
+  await Promise.all(Array.from({length:workers},async()=>{
+    while(true) {
+      const current=nextIndex++;
+      if(current>=results.length) return;
+      try {
+        rankedByIndex[current]=await candidatesForLead(results[current],input);
+      } catch {
+        rankedByIndex[current]=[];
+      } finally {
+        completed+=1;
+        onProcessed(completed,results.length);
+      }
+    }
+  }));
 
   for(let index=0;index<results.length;index+=1) {
-    const lead=results[index];
-    const ranked=await candidatesForLead(lead,input);
+    const ranked=rankedByIndex[index]||[];
     const available=ranked.filter(candidate=>
       !usedCnpjs.has(String(candidate.row.cnpj||""))
     );

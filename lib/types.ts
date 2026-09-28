@@ -19,6 +19,19 @@ export type SearchPayload = {
   exactCompany?: boolean;
 };
 
+export type SearchProgressStage = "preparing" | "locating" | "enriching" | "organizing" | "completed";
+
+export type SearchProgress = {
+  stage: SearchProgressStage;
+  current: number;
+  total: number;
+  percent: number;
+  message: string;
+  updatedAt: string;
+};
+
+export type SearchProgressReporter = (progress:SearchProgress)=>void;
+
 export type Potential = {
   score: number;
   level: PotentialLevel;

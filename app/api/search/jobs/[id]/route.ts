@@ -18,6 +18,7 @@ function expose(job:SearchJob) {
     payload:job.payload,
     status:job.status,
     result:job.result,
+    progress:job.progress,
     error:job.error,
     createdAt:job.createdAt,
     startedAt:job.startedAt,

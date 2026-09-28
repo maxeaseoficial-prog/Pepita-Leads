@@ -5,7 +5,7 @@ import { searchOpenStreetMap } from "./openstreetmap-search";
 import { enrichMapResultsFromRfb } from "./rfb-enrichment";
 import { enrichLeadsFromKnownCnpj, enrichLeadsFromRegistry } from "./company-registry";
 import { getRfbDatasetStatus } from "./rfb-db";
-import type { SearchPayload, SearchResponse } from "./types";
+import type { SearchPayload, SearchProgressReporter, SearchProgressStage, SearchResponse } from "./types";
 
 function objectFromUnknown(value:unknown):Record<string,unknown> {
   if(value&&typeof value==="object"&&!Array.isArray(value)) {
@@ -60,35 +60,75 @@ export function normalizeSearchPayload(value:unknown):SearchPayload {
   };
 }
 
-export async function runCompanySearch(rawPayload:unknown):Promise<SearchResponse> {
+export async function runCompanySearch(
+  rawPayload:unknown,
+  onProgress:SearchProgressReporter=()=>undefined
+):Promise<SearchResponse> {
   const payload=normalizeSearchPayload(rawPayload);
+  const report=(
+    stage:SearchProgressStage,
+    current:number,
+    total:number,
+    percent:number,
+    message:string
+  )=>onProgress({
+    stage,
+    current:Math.max(0,Math.round(current)),
+    total:Math.max(1,Math.round(total)),
+    percent:Math.max(0,Math.min(99,Math.round(percent))),
+    message,
+    updatedAt:new Date().toISOString()
+  });
 
   if(!payload.niche) throw new Error("Informe o nicho.");
   if(!payload.city&&!payload.exactCompany) throw new Error("Informe a cidade.");
 
+  report("preparing",0,payload.quantity,4,"Preparando a busca...");
   const useRfb=process.env.SEARCH_PROVIDER==="RFB"&&!payload.exactCompany;
   let result:SearchResponse;
   if(useRfb) {
+    report("locating",0,payload.quantity,10,"Localizando empresas na base pública...");
     result=await searchCompanies(payload);
+    report("locating",result.returned,result.requested,62,"Empresas localizadas.");
   } else {
+    report("locating",0,payload.quantity,10,"Consultando empresas na região...");
     const publicDirectory=payload.exactCompany
       ?null
       :await searchOpenStreetMap(payload).catch(()=>null);
     result=publicDirectory?.results.length
       ?publicDirectory
-      :await searchGoogleMaps(payload);
+      :await searchGoogleMaps(payload,progress=>{
+          report(
+            "locating",
+            progress.current,
+            progress.total,
+            10+progress.fraction*36,
+            progress.message
+          );
+        });
+    report("locating",result.returned,result.requested,46,"Empresas localizadas.");
   }
 
   if(useRfb) {
+    report("organizing",result.returned,result.requested,94,"Organizando os resultados...");
     const health=await getHealth();
     result.dataset.reference=health.datasetReference||null;
   } else {
     const fromOpenStreetMap=result.dataset.mode==="OPENSTREETMAP";
     const rfbStatus=await getRfbDatasetStatus();
-    const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload);
+    report("enriching",0,result.results.length||result.requested,48,"Confirmando dados públicos das empresas...");
+    const rfbEnriched=await enrichMapResultsFromRfb(result.results,payload,(current,total)=>{
+      report("enriching",current,total,48+(current/Math.max(1,total))*18,"Confirmando dados públicos das empresas...");
+    });
+    report("enriching",0,rfbEnriched.length||result.requested,67,"Consultando CNPJ e contatos...");
     const registryEnriched=fromOpenStreetMap
-      ?await enrichLeadsFromKnownCnpj(rfbEnriched,payload)
-      :await enrichLeadsFromRegistry(rfbEnriched,payload);
+      ?await enrichLeadsFromKnownCnpj(rfbEnriched,payload,(current,total)=>{
+          report("enriching",current,total,67+(current/Math.max(1,total))*25,"Consultando CNPJ e contatos...");
+        })
+      :await enrichLeadsFromRegistry(rfbEnriched,payload,(current,total)=>{
+          report("enriching",current,total,67+(current/Math.max(1,total))*25,"Consultando CNPJ e contatos...");
+        });
+    report("organizing",registryEnriched.length,result.requested,94,"Organizando os resultados...");
     result.results=registryEnriched.slice(0,result.requested);
     result.returned=result.results.length;
     result.partial=result.returned<result.requested;
@@ -104,5 +144,6 @@ export async function runCompanySearch(rawPayload:unknown):Promise<SearchRespons
         :"Google Maps + validação pública de CNPJ quando houver correspondência confiável");
   }
 
+  report("organizing",result.returned,result.requested,99,"Finalizando a apresentação dos resultados...");
   return result;
 }

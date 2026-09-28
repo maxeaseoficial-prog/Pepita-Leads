@@ -1,7 +1,7 @@
 import { getSql } from "./db";
 import { normalizeSearchPayload, runCompanySearch } from "./search-runner";
 import { workspaceForRequest, GUEST_WORKSPACE } from "./supabase/server-auth";
-import type { SearchPayload, SearchResponse } from "./types";
+import type { SearchPayload, SearchProgress, SearchResponse } from "./types";
 
 export type SearchJobStatus="pending"|"running"|"completed"|"failed";
 
@@ -12,6 +12,7 @@ export type SearchJob={
   payload:SearchPayload;
   status:SearchJobStatus;
   result:SearchResponse|null;
+  progress:SearchProgress;
   error:string|null;
   createdAt:string;
   startedAt:string|null;
@@ -39,14 +40,61 @@ function parseDbJson<T>(value:unknown,fallback:T):T {
   return fallback;
 }
 
+function initialProgress(payload:SearchPayload):SearchProgress {
+  return {
+    stage:"preparing",
+    current:0,
+    total:Math.max(1,payload.quantity),
+    percent:2,
+    message:"Preparando a busca...",
+    updatedAt:new Date().toISOString()
+  };
+}
+
+function isSearchResponse(value:unknown):value is SearchResponse {
+  if(!value||typeof value!=="object") return false;
+  const raw=value as Partial<SearchResponse>;
+  return Array.isArray(raw.results)&&typeof raw.requested==="number"&&typeof raw.returned==="number";
+}
+
+function isSearchProgress(value:unknown):value is SearchProgress {
+  if(!value||typeof value!=="object") return false;
+  const raw=value as Partial<SearchProgress>;
+  return typeof raw.stage==="string"
+    &&typeof raw.current==="number"
+    &&typeof raw.total==="number"
+    &&typeof raw.percent==="number"
+    &&typeof raw.message==="string";
+}
+
 function mapJob(row:Row):SearchJob {
+  const payload=normalizeSearchPayload(row.payload);
+  const status=String(row.status||"pending") as SearchJobStatus;
+  const stored=parseDbJson<unknown>(row.result,null);
+  const result=isSearchResponse(stored)?stored:null;
+  const storedProgress=stored&&typeof stored==="object"
+    ?(stored as {progress?:unknown}).progress
+    :null;
+  const progress=status==="completed"&&result
+    ?{
+        stage:"completed" as const,
+        current:result.returned,
+        total:result.requested,
+        percent:100,
+        message:"Resultados prontos.",
+        updatedAt:toIso(row.completed_at)||new Date().toISOString()
+      }
+    :isSearchProgress(storedProgress)
+      ?storedProgress
+      :initialProgress(payload);
   return {
     id:String(row.id),
     ownerKey:String(row.owner_key),
     query:String(row.query_text||""),
-    payload:normalizeSearchPayload(row.payload),
-    status:String(row.status||"pending") as SearchJobStatus,
-    result:parseDbJson<SearchResponse|null>(row.result,null),
+    payload,
+    status,
+    result,
+    progress,
     error:row.error_message?String(row.error_message):null,
     createdAt:new Date(String(row.created_at)).toISOString(),
     startedAt:toIso(row.started_at),
@@ -72,10 +120,10 @@ export async function createSearchJob(ownerKey:string,query:string,payload:Searc
 
   const sql=getSql();
   const rows=await sql.query(`
-    insert into public.search_jobs(owner_key,query_text,payload,status)
-    values($1,$2,$3::jsonb,'pending')
+    insert into public.search_jobs(owner_key,query_text,payload,status,result)
+    values($1,$2,$3::jsonb,'pending',$4::jsonb)
     returning *
-  `,[ownerKey,query,JSON.stringify(normalized)]) as unknown as Row[];
+  `,[ownerKey,query,JSON.stringify(normalized),JSON.stringify({progress:initialProgress(normalized)})]) as unknown as Row[];
 
   if(!rows[0]) throw new Error("SEARCH_JOB_CREATE_FAILED");
   return mapJob(rows[0]);
@@ -99,8 +147,49 @@ export async function processSearchJob(id:string) {
 
   if(!claimed[0]) return;
 
+  let latestProgress:SearchProgress|null=null;
+  let progressTimer:ReturnType<typeof setTimeout>|null=null;
+  let lastPersistedAt=0;
+  let progressWrites=Promise.resolve();
+  const persistProgress=(progress:SearchProgress)=>{
+    lastPersistedAt=Date.now();
+    progressWrites=progressWrites
+      .then(async()=>{
+        await sql.query(`
+          update public.search_jobs
+          set result=$2::jsonb,
+              updated_at=now()
+          where id=$1::uuid and status='running'
+        `,[id,JSON.stringify({progress})]);
+      })
+      .catch(()=>undefined);
+  };
+  const reportProgress=(progress:SearchProgress)=>{
+    latestProgress=progress;
+    if(progressTimer) return;
+    const delay=Math.max(0,400-(Date.now()-lastPersistedAt));
+    progressTimer=setTimeout(()=>{
+      progressTimer=null;
+      const pending=latestProgress;
+      latestProgress=null;
+      if(pending) persistProgress(pending);
+    },delay);
+  };
+  const flushProgress=async()=>{
+    if(progressTimer) {
+      clearTimeout(progressTimer);
+      progressTimer=null;
+    }
+    const pending=latestProgress;
+    latestProgress=null;
+    if(pending) persistProgress(pending);
+    await progressWrites;
+  };
+
   try {
-    const result=await runCompanySearch(claimed[0].payload);
+    reportProgress(initialProgress(normalizeSearchPayload(claimed[0].payload)));
+    const result=await runCompanySearch(claimed[0].payload,reportProgress);
+    await flushProgress();
     await sql.query(`
       update public.search_jobs
       set status='completed',
@@ -111,6 +200,7 @@ export async function processSearchJob(id:string) {
       where id=$1::uuid
     `,[id,JSON.stringify(result)]);
   } catch(error) {
+    await flushProgress();
     const message=error instanceof Error?error.message:"Falha na busca.";
     await sql.query(`
       update public.search_jobs
