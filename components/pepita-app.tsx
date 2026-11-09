@@ -1184,8 +1184,8 @@ export function PepitaApp() {
                         <span>Somente empresas sem site <small className="missionHelp">Encontre oportunidades de criação de sites</small></span>
                       </label>
                       <label className="missionFilter">
-                        <input type="checkbox" checked={structured.hasPhone} onChange={e=>setStructured({...structured,hasPhone:e.target.checked})}/>
-                        <span>Com telefone <small className="missionHelp">Priorize contatos comerciais</small></span>
+                        <input type="checkbox" checked readOnly disabled/>
+                        <span>Com telefone e e-mail <small className="missionHelp">Obrigatório na busca atual</small></span>
                       </label>
                       <label className={`missionFilter ${!providerSite?"disabled":""}`}>
                         <input type="checkbox" disabled={!providerSite} checked={providerSite&&structured.findInstagram} onChange={e=>setStructured({...structured,findInstagram:e.target.checked})}/>
