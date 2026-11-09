@@ -15,6 +15,7 @@ import { parseChatCommand } from "@/lib/chat-parser";
 import { downloadFile, EXPORT_COLUMNS } from "@/lib/export";
 import { money } from "@/lib/format";
 import { CrmBoard } from "./crm-board";
+import "./prospection-home.css";
 import { createClient, isSupabaseAuthConfigured } from "@/lib/supabase/client";
 import {
   ArrowUpIcon,
@@ -1085,7 +1086,7 @@ export function PepitaApp() {
           <button className="sidebarToggle" onClick={toggleSidebar} aria-label="Ocultar menu lateral" title="Ocultar menu"><SidebarIcon/></button>
         </div>
         <nav className="nav">
-          <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Chat"/>
+          <NavButton active={view==="chat"} onClick={()=>navigate("chat")} icon={<ChatIcon/>} label="Garimpar"/>
           <NavButton active={view==="results"} onClick={()=>navigate("results")} icon={<ResultsIcon/>} label="Resultados"/>
           <NavButton active={view==="crm"} onClick={()=>navigate("crm")} icon={<KanbanIcon/>} label="CRM"/>
           <NavButton active={view==="plans"} onClick={()=>navigate("plans")} icon={<PlansIcon/>} label="Planos"/>
@@ -1133,85 +1134,94 @@ export function PepitaApp() {
         {view===null&&<span className="srOnly" role="status">Abrindo a área selecionada…</span>}
 
         {view==="chat" && (
-          <section className="chatView">
-            <div className="chatScroll" ref={scrollRef}>
-              {!messages.length && (
-                <div className="welcome">
-                  <div className="heroGlow"><div className="pepitaWalk" role="img" aria-label="Pepita caminhando no lugar"/></div>
-                  <p className="eyebrow">PROSPECÇÃO EMPRESARIAL</p>
-                  <h1>Olá! Eu sou a <span>Pepita.</span></h1>
-                  <p className="lead">Diga quem você quer encontrar. Eu transformo seu pedido em filtros, consulto a base e organizo os resultados.</p>
-
-                  <div className="quickGrid">
-                    <QuickCard icon={<SearchIcon/>} title="Encontrar empresas" text="Busque por nicho, localização, porte e outros filtros."/>
-                    <QuickCard icon={<FileIcon/>} title="CNPJ e sócios" text="Abra o dossiê cadastral das empresas encontradas."/>
-                    <QuickCard icon={<GlobeIcon/>} title="Site e Instagram" text={providerSite?"Enriquecimento habilitado no servidor.":"Ative Google Places no servidor para enriquecer."}/>
-                    <QuickCard icon={<SparkIcon/>} title="Analisar oportunidades" text="Entenda por que uma empresa recebeu determinado potencial."/>
-                  </div>
-
-                  <div className="promptExamples">
-                    <span>Experimente</span>
-                    {[
-                      "Quero nutricionistas na cidade de Manaus",
-                      "Encontre 20 dentistas em Curitiba com telefone",
-                      "Quero empresas de carro na cidade de Ponta Grossa",
-                      "Encontre 10 academias em São Paulo com mais de 5 anos"
-                    ].map(item=><button key={item} onClick={()=>setChatInput(item)}>{item}</button>)}
+          <section className="missionView">
+            <div className="missionWrap">
+              <header className="missionHeader">
+                <div className="missionHero">
+                  <img className="missionMascot" src="/pepita/normal.png" alt="Pepita, sua assistente de prospecção" />
+                  <div>
+                    <div className="missionEyebrow">SUA PRÓXIMA MISSÃO</div>
+                    <h1>Garimpe com a <span>Pepita!</span></h1>
                   </div>
                 </div>
-              )}
-
-              <div className="conversation">
-                {messages.map(message=>(
-                  <div className={`messageRow ${message.role}`} key={message.id}>
-                    {message.role==="assistant" && <img className="avatar" src={message.kind==="error"?"/pepita/error.png":"/pepita/normal.png"} alt=""/>}
-                    <div className="bubble">
-                      <p>{message.text}</p>
-                      {message.kind==="result" && (
-                        <button className="inlinePrimary" onClick={()=>navigate("results")}>Ver resultados <ArrowRightIcon/></button>
-                      )}
+                <p>Escolha quem você quer encontrar, configure seus filtros e descubra novas oportunidades para o seu negócio.</p>
+              </header>
+              <form className="missionBoard" onSubmit={event=>{event.preventDefault();if(!working&&structured.niche.trim()&&structured.city.trim()&&/^[A-Z]{2}$/.test(structured.state))runStructured();}}>
+                <div className="missionBoardTop">
+                  <h2>Encontre seus próximos clientes</h2>
+                  <span className="missionStep">MISSÃO: PROSPECÇÃO</span>
+                </div>
+                <div className="missionGrid">
+                  <label className="missionField">
+                    Nicho ou segmento
+                    <input required value={structured.niche} onChange={e=>setStructured({...structured,niche:e.target.value})} placeholder="Ex.: Dentistas, academias, lojas..." />
+                  </label>
+                  <label className="missionField">
+                    Cidade
+                    <input required value={structured.city} onChange={e=>setStructured({...structured,city:e.target.value})} placeholder="Ex.: Curitiba" />
+                  </label>
+                  <label className="missionField">
+                    Estado (UF)
+                    <input required minLength={2} maxLength={2} pattern="[A-Z]{2}" value={structured.state} onChange={e=>setStructured({...structured,state:e.target.value.toUpperCase().replace(/[^A-Z]/g,"")})} placeholder="PR" aria-label="Sigla do estado" />
+                  </label>
+                  <div className="missionField">
+                    <span>Resultados desejados</span>
+                    <div className="missionChoices" role="group" aria-label="Quantidade de resultados">
+                      {[10,20,30,40,50,60].map(quantity=><button key={quantity} type="button" className={`missionChoice ${structured.quantity===quantity?"active":""}`} aria-pressed={structured.quantity===quantity} onClick={()=>setStructured({...structured,quantity})}>{quantity}</button>)}
                     </div>
                   </div>
-                ))}
-                {working && <WorkingCard job={searchJob} fallbackTotal={currentSearch?.quantity||0}/>}
-              </div>
+                  <div className="missionSection">
+                    <span className="missionSectionTitle">Potencial mínimo</span>
+                    <div className="missionChoices" role="group" aria-label="Potencial mínimo">
+                      {([["ALL","Todos"],["MEDIUM_PLUS","Médio+"],["HIGH","Alto"]] as const).map(([level,label])=><button key={level} type="button" className={`missionChoice ${structured.minPotential===level?"active":""}`} aria-pressed={structured.minPotential===level} onClick={()=>setStructured({...structured,minPotential:level})}>{label}</button>)}
+                    </div>
+                  </div>
+                  <div className="missionSection">
+                    <span className="missionSectionTitle">Filtros especiais</span>
+                    <div className="missionFilters">
+                      <label className={`missionFilter ${!providerSite?"disabled":""}`}>
+                        <input type="checkbox" disabled={!providerSite} checked={providerSite&&structured.onlyWithoutSite} onChange={e=>setStructured({...structured,onlyWithoutSite:e.target.checked})} />
+                        <span>Somente empresas sem site <small className="missionHelp">Encontre oportunidades de criação de sites</small></span>
+                      </label>
+                      <label className="missionFilter">
+                        <input type="checkbox" checked={structured.hasPhone} onChange={e=>setStructured({...structured,hasPhone:e.target.checked})}/>
+                        <span>Com telefone <small className="missionHelp">Priorize contatos comerciais</small></span>
+                      </label>
+                      <label className={`missionFilter ${!providerSite?"disabled":""}`}>
+                        <input type="checkbox" disabled={!providerSite} checked={providerSite&&structured.findInstagram} onChange={e=>setStructured({...structured,findInstagram:e.target.checked})}/>
+                        <span>Buscar Instagram <small className="missionHelp">Quando disponível nas fontes públicas</small></span>
+                      </label>
+                      <label className="missionFilter">
+                        <input type="checkbox" checked={structured.matrixOnly} onChange={e=>setStructured({...structured,matrixOnly:e.target.checked})}/>
+                        <span>Somente matrizes <small className="missionHelp">Exclui filiais dos resultados</small></span>
+                      </label>
+                    </div>
+                  </div>
+                  <details className="missionExtra">
+                    <summary>Filtros avançados: porte, idade e capital</summary>
+                    <div className="missionExtraGrid">
+                      <label className="missionField">Tempo mínimo de empresa
+                        <select value={structured.minAgeYears} onChange={e=>setStructured({...structured,minAgeYears:Number(e.target.value)})}>{[0,1,2,3,5,10].map(n=><option value={n} key={n}>{n===0?"Qualquer idade":`${n}+ anos`}</option>)}</select>
+                      </label>
+                      <label className="missionField">Capital social mínimo (R$)
+                        <input type="number" min={0} step={1000} value={structured.minCapital} onChange={e=>setStructured({...structured,minCapital:Math.max(0,Number(e.target.value))})}/>
+                      </label>
+                    </div>
+                    <div className="missionSection" style={{marginTop:16}}>
+                      <span className="missionSectionTitle">Porte da empresa</span>
+                      <div className="missionChoices">
+                        {([["MICRO","Microempresa"],["SMALL","Pequeno porte"],["OTHER","Demais"]] as const).map(([key,label])=><button type="button" key={key} className={`missionChoice ${structured.companySizes.includes(key)?"active":""}`} aria-pressed={structured.companySizes.includes(key)} onClick={()=>setStructured({...structured,companySizes:structured.companySizes.includes(key)?structured.companySizes.filter(x=>x!==key):[...structured.companySizes,key]})}>{label}</button>)}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+                <button className="missionButton" type="submit" disabled={working||!structured.niche.trim()||!structured.city.trim()||!/^[A-Z]{2}$/.test(structured.state)}>
+                  {working?"GARIMPANDO EMPRESAS...":"GARIMPAR EMPRESAS"}
+                </button>
+                <p className="missionHint">{providerSite?"Resultados organizados a partir das fontes disponíveis.":"Busca cadastral disponível. Enriquecimento de sites e Instagram depende da configuração do Google Places."}</p>
+              </form>
+              {working&&<div className="missionProgress"><WorkingCard job={searchJob} fallbackTotal={currentSearch?.quantity||0}/></div>}
             </div>
-
-            <form className={`composer ${voiceState!=="idle"?"voiceActive":""}`} onSubmit={e=>{e.preventDefault();handleChat();}}>
-              <div className="composerBody">
-                {voiceState==="idle" ? (
-                  <>
-                    <textarea
-                      value={chatInput}
-                      onChange={e=>{setChatInput(e.target.value);setVoiceError("");}}
-                      onKeyDown={e=>{
-                        if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();handleChat();}
-                      }}
-                      placeholder="Digite sua busca ou grave uma mensagem..."
-                      rows={1}
-                    />
-                    {voiceError && <p className="voiceError" role="alert">{voiceError}</p>}
-                    <div className="composerTools">
-                      <button type="button" className="voiceStartButton" title="Gravar mensagem de voz" aria-label="Gravar mensagem de voz" disabled={working} onClick={()=>void startVoiceInput()}><MicIcon/></button>
-                      <button type="submit" className="sendButton" aria-label="Enviar mensagem" disabled={working}><SendIcon/></button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="voiceRecorder" role="group" aria-label="Gravação de voz">
-                    <div className="voiceWave" aria-hidden="true">
-                      {Array.from({length:VOICE_BAR_COUNT},(_,index)=><span key={index} ref={element=>{voiceBarsRef.current[index]=element;}}/>)}
-                    </div>
-                    <div className="voiceMeta" aria-live="polite">
-                      <strong>{voiceState==="starting"?"Preparando":voiceState==="processing"?"Processando":"Ouvindo"}</strong>
-                      <span>{String(Math.floor(voiceSeconds/60)).padStart(2,"0")}:{String(voiceSeconds%60).padStart(2,"0")}</span>
-                      {voiceInterim && <span className="srOnly">{voiceInterim}</span>}
-                    </div>
-                    <button type="button" className="voiceControl voiceStop" title="Parar e revisar" aria-label="Parar gravação e revisar texto" disabled={voiceState!=="listening"} onClick={()=>finishVoiceInput(false)}><StopIcon/></button>
-                    <button type="button" className="voiceControl voiceSend" title="Enviar áudio" aria-label="Encerrar gravação e enviar mensagem" disabled={voiceState!=="listening"} onClick={()=>finishVoiceInput(true)}><ArrowUpIcon/></button>
-                  </div>
-                )}
-              </div>
-            </form>
           </section>
         )}
 
