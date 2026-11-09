@@ -47,3 +47,9 @@
 @media(prefers-reduced-motion:reduce){.missionChoice,.missionButton{transition:none}}
 
 .missionAlert{max-width:720px;margin:14px auto 0;padding:12px 14px;border-radius:12px;background:#fff0df;border:2px solid #d58a32;color:#713609;font-size:13px;font-weight:750;text-align:center}
+
+/* Direct Google Maps searches cannot report server-side percentage updates.
+   Show an indeterminate activity bar instead of a false 2% progress. */
+.searchProgressFill.directSearchFill{width:36%;transform:none!important;transform-origin:left;animation:pepitaDirectSearch 1.9s ease-in-out infinite}
+@keyframes pepitaDirectSearch{0%{margin-left:0;width:18%}50%{margin-left:40%;width:40%}100%{margin-left:82%;width:18%}}
+@media(prefers-reduced-motion:reduce){.searchProgressFill.directSearchFill{animation:none;width:45%;margin-left:20%}}
