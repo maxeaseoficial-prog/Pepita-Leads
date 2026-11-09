@@ -1,0 +1,47 @@
+
+/* Pepita mission-style home: isolated from CRM, results and settings. */
+.missionView{min-height:calc(100vh - 92px);padding:34px clamp(16px,4vw,54px) 72px;overflow:auto;position:relative;background:radial-gradient(ellipse at 50% 0%,#233bc9 0%,#172172 29%,#10152f 58%,#0a0d19 90%);color:#fff}
+.missionView:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.21;background-image:linear-gradient(#8aa2ff 1px,transparent 1px),linear-gradient(90deg,#8aa2ff 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,#000,transparent 75%)}
+.missionWrap{position:relative;max-width:1040px;margin:auto}
+.missionHeader{text-align:center;margin-bottom:28px}
+.missionHero{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+.missionMascot{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 10px 12px #080f42)}
+.missionEyebrow{color:#8eeaff;font-weight:900;font-size:11px;letter-spacing:.2em;text-transform:uppercase}
+.missionHeader h1{font-size:clamp(30px,5vw,52px);line-height:1.1;letter-spacing:-.045em;margin:8px 0;color:#fff;text-shadow:0 4px 0 #111949}
+.missionHeader h1 span{color:#ffcf21}
+.missionHeader p{color:#ccd7ff;margin:8px auto 0;max-width:570px;line-height:1.5;font-size:14px}
+.missionBoard{position:relative;padding:clamp(20px,4vw,42px);background:linear-gradient(165deg,#fffbe2 0%,#f6edb8 100%);border:4px solid #172c71;border-bottom-width:9px;border-radius:28px;box-shadow:0 16px 0 #070c27,0 26px 58px #0206168c;color:#1b2552}
+.missionBoard:before{content:"";position:absolute;inset:8px;border:2px solid #fff9d6;border-radius:18px;pointer-events:none}
+.missionBoardTop{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap;position:relative}
+.missionBoardTop h2{font-size:clamp(22px,3vw,30px);margin:0;color:#15245c;letter-spacing:-.03em;font-weight:950}
+.missionStep{background:#24c6ea;color:#062653;border:2px solid #093a8d;border-bottom:5px solid #093a8d;padding:8px 13px;border-radius:12px;font-weight:950;font-size:11px;letter-spacing:.04em}
+.missionGrid{display:grid;grid-template-columns:1fr 1fr;gap:22px 18px;position:relative}
+.missionField{min-width:0;display:flex;flex-direction:column;gap:9px;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#26366a}
+.missionField input,.missionField select{width:100%;min-height:53px;box-sizing:border-box;padding:12px 15px;border:2px solid #7a8cb0;border-bottom:5px solid #7a8cb0;border-radius:13px;background:#fff;color:#152252;outline:0;font:800 15px inherit;letter-spacing:normal;text-transform:none}
+.missionField input:focus,.missionField select:focus{border-color:#268bd9;box-shadow:0 0 0 3px #20caff4a}
+.missionField input::placeholder{color:#8b94a6}
+.missionSection{grid-column:1/-1}
+.missionSectionTitle{font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:950;color:#26366a;display:block;margin:2px 0 10px}
+.missionChoices{display:flex;flex-wrap:wrap;gap:9px}
+.missionChoice{min-width:57px;min-height:45px;border:2px solid #263d80;border-bottom:5px solid #263d80;border-radius:11px;background:linear-gradient(#fff,#e0e9ff);color:#18265c;font-size:14px;font-weight:900;padding:9px 15px;cursor:pointer;transition:transform .12s,filter .12s}
+.missionChoice:hover{filter:brightness(1.05);transform:translateY(-2px)}
+.missionChoice.active{background:linear-gradient(#ffe96d,#ffc519);border-color:#ad6700;box-shadow:0 3px 0 #fff5ad inset;color:#281c00}
+.missionFilters{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.missionFilter{display:flex;align-items:center;gap:11px;min-height:66px;padding:12px 13px;background:#fffdf2;border:2px solid #abb2bc;border-bottom-width:5px;border-radius:12px;cursor:pointer;font-weight:850;font-size:13px;color:#1f2b59}
+.missionFilter input{width:21px;height:21px;flex:none;accent-color:#ffc51b;cursor:pointer}
+.missionFilter:has(input:checked){border-color:#2075c6;background:#e2f6ff}
+.missionFilter.disabled{opacity:.5;cursor:not-allowed}
+.missionFilter.disabled input{cursor:not-allowed}
+.missionHelp{font-size:11px;color:#617094;font-weight:600;text-transform:none;letter-spacing:normal;display:block;margin-top:3px}
+.missionExtra{grid-column:1/-1;padding-top:5px}
+.missionExtra summary{font-weight:900;color:#244c9d;cursor:pointer;font-size:13px}
+.missionExtraGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.missionButton{display:block;width:100%;max-width:620px;min-height:67px;margin:27px auto 0;border:3px solid #b96e00;border-bottom:8px solid #a35c00;border-radius:16px;background:linear-gradient(180deg,#fff15c 0%,#ffcd1c 52%,#ffa716 100%);color:#281900;font-size:clamp(17px,2.7vw,23px);font-weight:1000;letter-spacing:.01em;text-shadow:0 1px #fff3a0;box-shadow:0 6px 0 #ed9d11 inset,0 9px 20px #92520045;cursor:pointer;transition:transform .12s}
+.missionButton:hover:not(:disabled){filter:brightness(1.05);transform:translateY(-2px)}
+.missionButton:active:not(:disabled){transform:translateY(4px);border-bottom-width:4px}
+.missionButton:disabled{opacity:.55;cursor:not-allowed}
+.missionHint{text-align:center;font-size:12px!important;color:#53648d!important;margin-top:13px!important}
+.missionProgress{margin-top:30px;background:#0d1943;border:2px solid #466dc5;border-radius:18px;padding:18px}
+.missionProgress .workingCard{margin:0}
+@media(max-width:700px){.missionView{padding:26px 12px 60px}.missionHero{gap:8px}.missionMascot{width:80px;height:80px}.missionBoard{padding:21px 15px;border-radius:22px}.missionGrid,.missionFilters,.missionExtraGrid{grid-template-columns:1fr}.missionSection{grid-column:1}.missionBoardTop{margin-bottom:18px}.missionChoices{gap:7px}.missionChoice{min-width:49px;padding:8px 11px}.missionHeader p{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.missionChoice,.missionButton{transition:none}}
