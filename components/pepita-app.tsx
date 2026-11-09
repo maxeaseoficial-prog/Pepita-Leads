@@ -886,20 +886,66 @@ export function PepitaApp() {
     setWorking(true);
     setSearchJob(null);
     setCurrentSearch(enforcedPayload);
+    const generation=++searchPollGenerationRef.current;
+
+    // Search jobs use Postgres for persistence. Public Google Maps searches
+    // should still be possible if the optional workspace database is absent.
+    const runDirectSearch=async()=>{
+      const result=await fetchJson<SearchResponse>("/api/search",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(enforcedPayload),
+        cache:"no-store"
+      });
+      if(searchPollGenerationRef.current!==generation) return;
+      const now=new Date().toISOString();
+      const job:SearchJobDto={
+        id:crypto.randomUUID(),
+        query,
+        payload:enforcedPayload,
+        status:"completed",
+        result,
+        progress:{
+          stage:"completed",
+          current:result.returned,
+          total:result.requested,
+          percent:100,
+          message:"Resultados prontos.",
+          updatedAt:now
+        },
+        error:null,
+        createdAt:now,
+        startedAt:now,
+        completedAt:now,
+        updatedAt:now
+      };
+      await finishSearchJob(job,generation);
+    };
 
     try {
-      const data=await searchJobRequest("/api/search/jobs",{
-        method:"POST",
-        body:JSON.stringify({query,payload:enforcedPayload})
-      });
-      const job=data.job;
-      if(!job) throw new Error("Não consegui iniciar a busca.");
-
-      const generation=++searchPollGenerationRef.current;
-      activeSearchJobRef.current=job.id;
-      setSearchJob(job);
-      void pollSearchJob(job.id,generation,job);
+      if(health?.database==="missing"||health?.database==="error") {
+        await runDirectSearch();
+        return;
+      }
+      try {
+        const data=await searchJobRequest("/api/search/jobs",{
+          method:"POST",
+          body:JSON.stringify({query,payload:enforcedPayload})
+        });
+        const job=data.job;
+        if(!job) throw new Error("Não consegui iniciar a busca.");
+        activeSearchJobRef.current=job.id;
+        setSearchJob(job);
+        void pollSearchJob(job.id,generation,job);
+      } catch(error) {
+        if(error instanceof Error&&/DATABASE_URL_NOT_CONFIGURED/.test(error.message)) {
+          await runDirectSearch();
+          return;
+        }
+        throw error;
+      }
     } catch(error) {
+      if(searchPollGenerationRef.current!==generation) return;
       setWorking(false);
       setSearchJob(null);
       addMessage(
