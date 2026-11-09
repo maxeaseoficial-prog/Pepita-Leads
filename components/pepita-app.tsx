@@ -1138,7 +1138,6 @@ export function PepitaApp() {
             <div className="missionWrap">
               <header className="missionHeader">
                 <div className="missionHero">
-                  <img className="missionMascot" src="/pepita/normal.png" alt="Pepita, sua assistente de prospecção" />
                   <div>
                     <div className="missionEyebrow">SUA PRÓXIMA MISSÃO</div>
                     <h1>Garimpe com a <span>Pepita!</span></h1>
