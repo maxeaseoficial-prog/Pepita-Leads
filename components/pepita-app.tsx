@@ -761,7 +761,8 @@ export function PepitaApp() {
     if(job.status!=="completed"||!job.result) return;
 
     const count=job.result.returned;
-    const title=count>0?"Resultados encontrados":"Busca concluída";
+    if(count===0) return;
+    const title="Resultados encontrados";
     const body=count>0
       ? `A Pepita encontrou ${count} ${count===1?"empresa":"empresas"}. Clique para ver os resultados.`
       : "A Pepita terminou a busca, mas não encontrou empresas compatíveis.";
@@ -814,12 +815,13 @@ export function PepitaApp() {
       }
 
       if(job.result.returned===0) {
-        addMessage("assistant","Não encontrei empresas compatíveis com esses filtros na base atual. Tente ampliar os filtros ou ajustar o nicho.","error");
+        addMessage("assistant","A pesquisa terminou, mas nenhuma empresa foi encontrada com esses filtros. Experimente outro nicho, desative 'Somente empresas sem site' ou amplie a localização.","error");
       } else {
         const text=job.result.partial
-          ? `Encontrei ${job.result.returned} empresas compatíveis para ${job.result.requested} solicitadas. Clique para ver os resultados.`
-          : `Encontrei ${job.result.returned} empresas compatíveis. Clique para ver os resultados.`;
+          ? `Encontrei ${job.result.returned} empresas compatíveis entre ${job.result.requested} solicitadas.`
+          : `Encontrei ${job.result.returned} empresas compatíveis.`;
         addMessage("assistant",text,"result");
+        navigate("results");
       }
     } else {
       addMessage("assistant",job.error||"Não consegui concluir a busca.","error");
@@ -885,6 +887,7 @@ export function PepitaApp() {
     prepareSearchNotifications();
     setWorking(true);
     setSearchJob(null);
+    setMessages([]);
     setCurrentSearch(enforcedPayload);
     const generation=++searchPollGenerationRef.current;
 
@@ -1050,8 +1053,7 @@ export function PepitaApp() {
   function runStructured() {
     setStructuredOpen(false);
     const text=`${structured.quantity} ${structured.niche} em ${structured.city}/${structured.state}`;
-    addMessage("user",text);
-    executeSearch(structured,text);
+    void executeSearch(structured,text);
   }
 
   function restoreHistory(item:HistoryItem) {
@@ -1263,7 +1265,7 @@ export function PepitaApp() {
                 <button className="missionButton" type="submit" disabled={working||!structured.niche.trim()||!structured.city.trim()||!/^[A-Z]{2}$/.test(structured.state)}>
                   {working?"GARIMPANDO EMPRESAS...":"GARIMPAR EMPRESAS"}
                 </button>
-                {health?.database==="missing"&&<p className="missionAlert" role="status">O banco de dados ainda não está configurado. As buscas podem ficar indisponíveis até a conexão ser ativada.</p>}
+                {health?.database==="missing"&&<p className="missionHint" role="status">Buscas públicas disponíveis sem banco; CRM e histórico de tarefas dependem da configuração do banco.</p>}
                 {messages.filter(message=>message.kind==="error").slice(-1).map(message=><p key={message.id} className="missionAlert" role="alert">{message.text}</p>)}
                 <p className="missionHint">{providerSite?"As informações são consultadas nas fontes públicas disponíveis.":"Enriquecimento de sites e Instagram exige Google Places configurado no servidor."}</p>
               </form>
@@ -1419,7 +1421,7 @@ function WorkingCard({job,fallbackTotal}:{job:SearchJobDto|null;fallbackTotal:nu
             <strong>Pepita está garimpando</strong>
             <span>Aguarde enquanto preparamos seus resultados.</span>
           </div>
-          <b>{Math.round(percent)}%</b>
+          <b>{job?`${Math.round(percent)}%`:"Buscando..."}</b>
         </div>
         <div
           className="searchProgressTrack"
@@ -1427,13 +1429,12 @@ function WorkingCard({job,fallbackTotal}:{job:SearchJobDto|null;fallbackTotal:nu
           aria-label="Progresso da busca"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(percent)}
-          aria-valuetext={`${Math.round(percent)}%. ${countLabel}`}
+          {...(job?{"aria-valuenow":Math.round(percent),"aria-valuetext":`${Math.round(percent)}%. ${countLabel}`}:{"aria-valuetext":"Pesquisa em andamento"})}
         >
-          <i className="searchProgressFill" style={{transform:`scaleX(${percent/100})`}}/>
+          <i className={job?"searchProgressFill":"searchProgressFill directSearchFill"} style={job?{transform:`scaleX(${percent/100})`}:undefined}/>
         </div>
-        <div className="searchProgressCount"><strong>{countLabel}</strong><span aria-live="polite">{progress.message}</span></div>
-        <div className="searchProgressMeta"><span>{formatClock(elapsedSeconds)} decorrido</span><span>{eta}</span></div>
+        <div className="searchProgressCount"><strong>{job?countLabel:"Consultando empresas no Google Maps e fontes públicas"}</strong><span aria-live="polite">{job?progress.message:"A duração depende da resposta das fontes externas."}</span></div>
+        {job&&<div className="searchProgressMeta"><span>{formatClock(elapsedSeconds)} decorrido</span><span>{eta}</span></div>}
       </div>
     </div>
   );
