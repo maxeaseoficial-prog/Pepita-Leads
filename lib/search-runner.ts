@@ -92,20 +92,33 @@ export async function runCompanySearch(
     report("locating",result.returned,result.requested,62,"Empresas localizadas.");
   } else {
     report("locating",0,payload.quantity,10,"Consultando empresas na região...");
-    const publicDirectory=payload.exactCompany
-      ?null
-      :await searchOpenStreetMap(payload).catch(()=>null);
-    result=publicDirectory?.results.length
-      ?publicDirectory
-      :await searchGoogleMaps(payload,progress=>{
-          report(
-            "locating",
-            progress.current,
-            progress.total,
-            10+progress.fraction*36,
-            progress.message
-          );
-        });
+    // Prefer Google Maps as the primary discovery source. OpenStreetMap
+    // provides a transparent fallback if Google blocks or finds no matches.
+    let googleResult:SearchResponse|null=null;
+    let googleError:unknown=null;
+    try {
+      googleResult=await searchGoogleMaps(payload,progress=>{
+        report(
+          "locating",
+          progress.current,
+          progress.total,
+          10+progress.fraction*36,
+          progress.message
+        );
+      });
+    } catch(error) {
+      googleError=error;
+      console.warn("GOOGLE_MAPS_SEARCH_FALLBACK",error instanceof Error?error.message:String(error));
+    }
+    if(googleResult?.results.length||payload.exactCompany) {
+      if(!googleResult) throw googleError instanceof Error?googleError:new Error("Não consegui consultar o Google Maps.");
+      result=googleResult;
+    } else {
+      const publicDirectory=await searchOpenStreetMap(payload).catch(()=>null);
+      if(publicDirectory?.results.length) result=publicDirectory;
+      else if(googleResult) result=googleResult;
+      else throw googleError instanceof Error?googleError:new Error("Não consegui consultar fontes públicas.");
+    }
     report("locating",result.returned,result.requested,46,"Empresas localizadas.");
   }
 
