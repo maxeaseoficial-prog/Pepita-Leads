@@ -1218,7 +1218,9 @@ export function PepitaApp() {
                 <button className="missionButton" type="submit" disabled={working||!structured.niche.trim()||!structured.city.trim()||!/^[A-Z]{2}$/.test(structured.state)}>
                   {working?"GARIMPANDO EMPRESAS...":"GARIMPAR EMPRESAS"}
                 </button>
-                <p className="missionHint">{providerSite?"Resultados organizados a partir das fontes disponíveis.":"Busca cadastral disponível. Enriquecimento de sites e Instagram depende da configuração do Google Places."}</p>
+                {health?.database==="missing"&&<p className="missionAlert" role="status">O banco de dados ainda não está configurado. As buscas podem ficar indisponíveis até a conexão ser ativada.</p>}
+                {messages.filter(message=>message.kind==="error").slice(-1).map(message=><p key={message.id} className="missionAlert" role="alert">{message.text}</p>)}
+                <p className="missionHint">{providerSite?"As informações são consultadas nas fontes públicas disponíveis.":"Enriquecimento de sites e Instagram exige Google Places configurado no servidor."}</p>
               </form>
               {working&&<div className="missionProgress"><WorkingCard job={searchJob} fallbackTotal={currentSearch?.quantity||0}/></div>}
             </div>
