@@ -17,7 +17,7 @@
 .missionStep{background:#24c6ea;color:#062653;border:2px solid #093a8d;border-bottom:5px solid #093a8d;padding:8px 13px;border-radius:12px;font-weight:950;font-size:11px;letter-spacing:.04em}
 .missionGrid{display:grid;grid-template-columns:1fr 1fr;gap:22px 18px;position:relative}
 .missionField{min-width:0;display:flex;flex-direction:column;gap:9px;font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#26366a}
-.missionField input,.missionField select{width:100%;min-height:53px;box-sizing:border-box;padding:12px 15px;border:2px solid #7a8cb0;border-bottom:5px solid #7a8cb0;border-radius:13px;background:#fff;color:#152252;outline:0;font:800 15px inherit;letter-spacing:normal;text-transform:none}
+.missionField input,.missionField select{width:100%;min-height:53px;box-sizing:border-box;padding:12px 15px;border:2px solid #7a8cb0;border-bottom:5px solid #7a8cb0;border-radius:13px;background:#fff;color:#152252;outline:0;font-size:15px;font-weight:800;font-family:inherit;letter-spacing:normal;text-transform:none}
 .missionField input:focus,.missionField select:focus{border-color:#268bd9;box-shadow:0 0 0 3px #20caff4a}
 .missionField input::placeholder{color:#8b94a6}
 .missionSection{grid-column:1/-1}
